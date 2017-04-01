@@ -2,6 +2,8 @@ package de.charite.compbio.jannovar.reference;
 
 import java.io.Serializable;
 
+import com.google.common.collect.ComparisonChain;
+
 import de.charite.compbio.jannovar.Immutable;
 import de.charite.compbio.jannovar.data.ReferenceDictionary;
 import de.charite.compbio.jannovar.impl.util.StringUtil;
@@ -12,10 +14,10 @@ import de.charite.compbio.jannovar.impl.util.StringUtil;
  * Internally, positions are always stored zero-based, but the position type can be explicitely given to the constructor
  * of {@link GenomeInterval}.
  *
- * @author Manuel Holtgrewe <manuel.holtgrewe@charite.de>
+ * @author <a href="mailto:manuel.holtgrewe@charite.de">Manuel Holtgrewe</a>
  */
 @Immutable
-public final class GenomeInterval implements Serializable {
+public final class GenomeInterval implements Serializable, Comparable<GenomeInterval> {
 
 	private static final long serialVersionUID = 2L;
 
@@ -90,7 +92,7 @@ public final class GenomeInterval implements Serializable {
 		this.endPos = pos.getPos() + length;
 	}
 
-	/** @return {@link ReferenceDitionary} to use */
+	/** @return {@link ReferenceDictionary} to use */
 	public ReferenceDictionary getRefDict() {
 		return refDict;
 	}
@@ -151,10 +153,28 @@ public final class GenomeInterval implements Serializable {
 		return new GenomeInterval(refDict, strand, chr, beginPos, endPos, PositionType.ZERO_BASED);
 	}
 
+	// TODO(holtgrewe): Test me!
+	/**
+	 * @return GenomeInterval with union of <code>this</code> and <code>other</code> and everything in between,
+	 *         <code>this</code> if on different chromosomes. Result will be on the same strand as <code>this</code>.
+	 */
+	public GenomeInterval union(GenomeInterval other) {
+		if (chr != other.chr)
+			return new GenomeInterval(refDict, strand, chr, beginPos, beginPos, PositionType.ZERO_BASED);
+		other = other.withStrand(strand);
+
+		int beginPos = Math.min(this.beginPos, other.beginPos);
+		int endPos = Math.max(this.endPos, other.endPos);
+		if (endPos < beginPos)
+			beginPos = endPos;
+
+		return new GenomeInterval(refDict, strand, chr, beginPos, endPos, PositionType.ZERO_BASED);
+	}
+
 	/**
 	 * @param pos
 	 *            query position
-	 * @return <tt>true</tt> if the interval is truly left of the position
+	 * @return <tt>true</tt> if the interval is truly left of the base that base pos points to
 	 */
 	public boolean isLeftOf(GenomePosition pos) {
 		if (chr != pos.getChr())
@@ -167,7 +187,7 @@ public final class GenomeInterval implements Serializable {
 	/**
 	 * @param pos
 	 *            query position
-	 * @return <tt>true</tt> if the interval is truly right of the position
+	 * @return <tt>true</tt> if the interval is truly right of the base that base pos points to
 	 */
 	public boolean isRightOf(GenomePosition pos) {
 		if (chr != pos.getChr())
@@ -175,6 +195,32 @@ public final class GenomeInterval implements Serializable {
 		if (pos.getStrand() != strand)
 			pos = pos.withStrand(strand); // ensure that we are on the correct strand
 		return (pos.getPos() < beginPos);
+	}
+
+	/**
+	 * @param pos
+	 *            query position
+	 * @return <tt>true</tt> if the interval is truly left of the gap between bases that <code>pos</code> points at
+	 */
+	public boolean isLeftOfGap(GenomePosition pos) {
+		if (chr != pos.getChr())
+			return false; // wrong chromosome
+		if (pos.getStrand() != strand)
+			pos = pos.withStrand(strand); // ensure that we are on the correct strand
+		return (pos.getPos() >= endPos);
+	}
+
+	/**
+	 * @param pos
+	 *            query position
+	 * @return <tt>true</tt> if the interval is truly right of the gap between bases that <code>pos</code> points at
+	 */
+	public boolean isRightOfGap(GenomePosition pos) {
+		if (chr != pos.getChr())
+			return false; // wrong chromosome
+		if (pos.getStrand() != strand)
+			pos = pos.withStrand(strand); // ensure that we are on the correct strand
+		return (pos.getPos() <= beginPos);
 	}
 
 	/**
@@ -208,8 +254,16 @@ public final class GenomeInterval implements Serializable {
 	 * @return a {@link GenomeInterval} that has <code>padding</code> more bases towards each side as padding
 	 */
 	public GenomeInterval withMorePadding(int padding) {
+		return withMorePadding(padding, padding);
+	}
+
+	/**
+	 * @return a {@link GenomeInterval} that has <code>padding</code> more bases towards either side as padding.
+	 */
+	public GenomeInterval withMorePadding(int paddingUpstream, int paddingDownstream) {
 		// TODO(holtgrem): throw when going outside of chromosome?
-		return new GenomeInterval(refDict, strand, chr, beginPos - padding, endPos + padding, PositionType.ZERO_BASED);
+		return new GenomeInterval(refDict, strand, chr, beginPos - paddingUpstream, endPos + paddingDownstream,
+				PositionType.ZERO_BASED);
 	}
 
 	/**
@@ -221,12 +275,13 @@ public final class GenomeInterval implements Serializable {
 		// TODO(holtgrem): add test for this
 		if (chr != other.chr)
 			return false;
+		other = other.withStrand(strand);
 		return (other.beginPos < endPos && beginPos < other.endPos);
 	}
 
 	/*
 	 * (non-Javadoc)
-	 *
+	 * 
 	 * @see java.lang.Object#toString()
 	 */
 	@Override
@@ -234,12 +289,12 @@ public final class GenomeInterval implements Serializable {
 		if (strand.isReverse())
 			return withStrand(Strand.FWD).toString();
 
-		return StringUtil.concatenate(refDict.getContigNameToID().get(chr), ":g.", beginPos + 1, "-", endPos);
+		return StringUtil.concatenate(refDict.getContigIDToName().get(chr), ":g.", beginPos + 1, "_", endPos);
 	}
 
 	/*
 	 * (non-Javadoc)
-	 *
+	 * 
 	 * @see java.lang.Object#hashCode()
 	 */
 	@Override
@@ -258,7 +313,7 @@ public final class GenomeInterval implements Serializable {
 
 	/*
 	 * (non-Javadoc)
-	 *
+	 * 
 	 * @see java.lang.Object#equals(java.lang.Object)
 	 */
 	@Override
@@ -280,6 +335,13 @@ public final class GenomeInterval implements Serializable {
 		if (strand != other.strand)
 			return false;
 		return true;
+	}
+
+	@Override
+	public int compareTo(GenomeInterval other) {
+		other = other.withStrand(strand);
+		return ComparisonChain.start().compare(getChr(), other.getChr()).compare(getBeginPos(), other.getBeginPos())
+				.compare(getEndPos(), other.getEndPos()).result();
 	}
 
 }

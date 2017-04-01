@@ -5,17 +5,19 @@ import java.util.List;
 import com.google.common.collect.ImmutableList;
 
 import de.charite.compbio.jannovar.Immutable;
+import de.charite.compbio.jannovar.reference.TranscriptModel;
 
 /**
- * Wrapper for a immutable lists of {@link Genotype} calls for one {@link TranscriptInfo}, one list of calls for each
- * individual.
+ * Wrapper for a immutable lists of {@link Genotype} calls for one {@link TranscriptModel}, one list of calls for
+ * each individual.
  *
  * This name list is used for ensuring that the same order and number of individuals is used in the genotype file as in
  * the pedigree file.
  *
- * @author Manuel Holtgrewe <manuel.holtgrewe@charite.de>
+ * @author <a href="mailto:manuel.holtgrewe@charite.de">Manuel Holtgrewe</a>
  */
 @Immutable
+@Deprecated
 public final class GenotypeList {
 
 	/** the name of the gene for this genotype call list */
@@ -52,33 +54,51 @@ public final class GenotypeList {
 		this.calls = calls;
 	}
 
-	/** the name of the gene for this genotype call list */
+	/**
+	 * the name of the gene for this genotype call list
+	 * 
+	 * @return the gene name
+	 */
 	public String getGeneName() {
 		return geneName;
 	}
 
-	/** the list of individual names */
+	/**
+	 * the list of individual names
+	 * 
+	 * @return individual names of pedigree
+	 */
 	public ImmutableList<String> getNames() {
 		return names;
 	}
 
-	/** whether or not the variants are on the X chromsome */
+	/**
+	 * whether or not the variants are on the X chromsome
+	 * 
+	 * @return if genotype on x-chromosome
+	 */
 	public boolean isXChromosomal() {
 		return isXChromosomal;
 	};
 
-	/** the lists of genotype calls, each contains one entry for each individual */
+	/**
+	 * the lists of genotype calls, each contains one entry for each individual
+	 * 
+	 * @return The genotype calls of this list.
+	 */
 	public ImmutableList<ImmutableList<Genotype>> getCalls() {
 		return calls;
 	}
 
 	/**
-	 * Check whether the {@link #names} of this GenotypeList are the same as the names of the members of
+	 * Check whether the {@link #names} of this GenotypeCalls are the same as the names of the members of
 	 * <code>pedigree</code>.
 	 *
 	 * For this, the order of the names has to be the same as the number of the names. This check is important for the
-	 * {@link PedigreeDiseaseCompatibilityDecorator}, where the names in the pedigree must be the same as the names in
-	 * the genotype list.
+	 * PedigreeDiseaseCompatibilityDecorator, where the names in the pedigree must be the same as the names in the
+	 * genotype list.
+	 * 
+	 * @param pedigree
 	 *
 	 * @return <code>true</code> if the list of {@link #names} is the same as the names of the members of
 	 *         <code>pedigree</code>
@@ -89,7 +109,7 @@ public final class GenotypeList {
 
 	@Override
 	public String toString() {
-		return "GenotypeList(" + calls + ")";
+		return "GenotypeCalls(" + calls + ")";
 	}
 
 }

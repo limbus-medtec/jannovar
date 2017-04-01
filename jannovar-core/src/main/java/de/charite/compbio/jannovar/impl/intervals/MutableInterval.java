@@ -3,8 +3,8 @@ package de.charite.compbio.jannovar.impl.intervals;
 /**
  * Mutable half-open interval, for incremental building of {@link Interval} objects.
  *
- * @author Manuel Holtgrewe <manuel.holtgrewe@charite.de>
- * @author Max Schubach <max.schubach@charite.de>
+ * @author <a href="mailto:manuel.holtgrewe@charite.de">Manuel Holtgrewe</a>
+ * @author <a href="mailto:max.schubach@charite.de">Max Schubach</a>
  */
 public class MutableInterval<T> implements java.io.Serializable, Comparable<MutableInterval<T>> {
 
@@ -88,19 +88,20 @@ public class MutableInterval<T> implements java.io.Serializable, Comparable<Muta
 			return false;
 		if (getClass() != obj.getClass())
 			return false;
-		@SuppressWarnings("rawtypes")
-		Interval other = (Interval) obj;
-		if (begin != other.getBegin())
-			return false;
-		if (end != other.getEnd())
-			return false;
-		if (maxEnd != other.getMaxEnd())
-			return false;
-		if (value == null) {
-			if (other.getValue() != null)
+		if (obj instanceof Interval<?>) {
+			Interval<?> other = (Interval<?>) obj;
+			if (begin != other.getBegin())
 				return false;
-		} else if (!value.equals(other.getValue()))
-			return false;
+			if (end != other.getEnd())
+				return false;
+			if (maxEnd != other.getMaxEnd())
+				return false;
+			if (value == null) {
+				if (other.getValue() != null)
+					return false;
+			} else if (!value.equals(other.getValue()))
+				return false;
+		}
 		return true;
 	}
 

@@ -1,5 +1,7 @@
 package de.charite.compbio.jannovar.annotation;
 
+import com.google.common.collect.ImmutableList;
+
 import de.charite.compbio.jannovar.Immutable;
 
 // TODO(holtgrewe): Remove me.
@@ -7,8 +9,8 @@ import de.charite.compbio.jannovar.Immutable;
 /**
  * Decorator for {@link VariantAnnotations} for generating variant annotation strings for all variants
  *
- * @author Manuel Holtgrewe <manuel.holtgrewe@charite.de>
- * @author Peter N Robinson <peter.robinson@charite.de>
+ * @author <a href="mailto:manuel.holtgrewe@charite.de">Manuel Holtgrewe</a>
+ * @author <a href="mailto:Peter.Robinson@jax.org">Peter N Robinson</a>
  */
 @Deprecated
 @Immutable
@@ -19,8 +21,8 @@ public final class AllAnnotationListTextGenerator extends VariantAnnotationsText
 	}
 
 	@Override
-	protected VariantAnnotations getAnnotations() {
-		return annotations;
+	protected ImmutableList<Annotation> getAnnotations() {
+		return annotations.getAnnotations();
 	}
 
 }

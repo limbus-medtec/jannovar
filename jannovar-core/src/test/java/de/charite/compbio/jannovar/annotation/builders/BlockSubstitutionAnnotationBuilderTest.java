@@ -8,11 +8,11 @@ import com.google.common.collect.ImmutableSortedSet;
 
 import de.charite.compbio.jannovar.annotation.Annotation;
 import de.charite.compbio.jannovar.annotation.AnnotationLocation;
-import de.charite.compbio.jannovar.annotation.InvalidGenomeChange;
+import de.charite.compbio.jannovar.annotation.InvalidGenomeVariant;
 import de.charite.compbio.jannovar.annotation.VariantEffect;
 import de.charite.compbio.jannovar.data.ReferenceDictionary;
-import de.charite.compbio.jannovar.reference.GenomeVariant;
 import de.charite.compbio.jannovar.reference.GenomePosition;
+import de.charite.compbio.jannovar.reference.GenomeVariant;
 import de.charite.compbio.jannovar.reference.HG19RefDictBuilder;
 import de.charite.compbio.jannovar.reference.PositionType;
 import de.charite.compbio.jannovar.reference.Strand;
@@ -60,33 +60,33 @@ public class BlockSubstitutionAnnotationBuilderTest {
 	}
 
 	@Test
-	public void testForwardUstream() throws InvalidGenomeChange {
+	public void testForwardUpstream() throws InvalidGenomeVariant {
 		GenomeVariant change1 = new GenomeVariant(new GenomePosition(refDict, Strand.FWD, 1, 6640059,
 				PositionType.ZERO_BASED), "ACG", "CGTT");
 		Annotation annotation1 = new BlockSubstitutionAnnotationBuilder(infoForward, change1,
 				new AnnotationBuilderOptions()).build();
 		// TODO(holtgrew): Check for distance==0
 		Assert.assertEquals(infoForward.getAccession(), annotation1.getTranscript().getAccession());
-		Assert.assertEquals(null, annotation1.getNucleotideHGVSDescription());
-		Assert.assertEquals(null, annotation1.getAminoAcidHGVSDescription());
+		Assert.assertEquals(null, annotation1.getCDSNTChange());
+		Assert.assertEquals(null, annotation1.getProteinChange());
 		Assert.assertEquals(ImmutableSortedSet.of(VariantEffect.UPSTREAM_GENE_VARIANT), annotation1.getEffects());
 	}
 
 	@Test
-	public void testForwardDownstream() throws InvalidGenomeChange {
+	public void testForwardDownstream() throws InvalidGenomeVariant {
 		GenomeVariant change1 = new GenomeVariant(new GenomePosition(refDict, Strand.FWD, 1, 6649340,
 				PositionType.ZERO_BASED), "ACG", "CGTT");
 		Annotation annotation1 = new BlockSubstitutionAnnotationBuilder(infoForward, change1,
 				new AnnotationBuilderOptions()).build();
 		// TODO(holtgrew): Check for distance==0
 		Assert.assertEquals(infoForward.getAccession(), annotation1.getTranscript().getAccession());
-		Assert.assertEquals(null, annotation1.getNucleotideHGVSDescription());
-		Assert.assertEquals(null, annotation1.getAminoAcidHGVSDescription());
+		Assert.assertEquals(null, annotation1.getCDSNTChange());
+		Assert.assertEquals(null, annotation1.getProteinChange());
 		Assert.assertEquals(ImmutableSortedSet.of(VariantEffect.DOWNSTREAM_GENE_VARIANT), annotation1.getEffects());
 	}
 
 	@Test
-	public void testForwardIntergenic() throws InvalidGenomeChange {
+	public void testForwardIntergenic() throws InvalidGenomeVariant {
 		// intergenic upstream
 		GenomeVariant change1 = new GenomeVariant(new GenomePosition(refDict, Strand.FWD, 1, 6639059,
 				PositionType.ZERO_BASED), "ACG", "CGTT");
@@ -94,8 +94,8 @@ public class BlockSubstitutionAnnotationBuilderTest {
 				new AnnotationBuilderOptions()).build();
 		// TODO(holtgrew): Check for distance==1000
 		Assert.assertEquals(infoForward.getAccession(), annotation1.getTranscript().getAccession());
-		Assert.assertEquals(null, annotation1.getNucleotideHGVSDescription());
-		Assert.assertEquals(null, annotation1.getAminoAcidHGVSDescription());
+		Assert.assertEquals(null, annotation1.getCDSNTChange());
+		Assert.assertEquals(null, annotation1.getProteinChange());
 		Assert.assertEquals(ImmutableSortedSet.of(VariantEffect.INTERGENIC_VARIANT), annotation1.getEffects());
 		// intergenic downstream
 		GenomeVariant change2 = new GenomeVariant(new GenomePosition(refDict, Strand.FWD, 1, 6650340,
@@ -104,13 +104,13 @@ public class BlockSubstitutionAnnotationBuilderTest {
 				new AnnotationBuilderOptions()).build();
 		// TODO(holtgrew): Check for distance==1000
 		Assert.assertEquals(infoForward.getAccession(), annotation2.getTranscript().getAccession());
-		Assert.assertEquals(null, annotation2.getNucleotideHGVSDescription());
-		Assert.assertEquals(null, annotation2.getAminoAcidHGVSDescription());
+		Assert.assertEquals(null, annotation2.getCDSNTChange());
+		Assert.assertEquals(null, annotation2.getProteinChange());
 		Assert.assertEquals(ImmutableSortedSet.of(VariantEffect.INTERGENIC_VARIANT), annotation2.getEffects());
 	}
 
 	@Test
-	public void testForwardTranscriptAblation() throws InvalidGenomeChange {
+	public void testForwardTranscriptAblation() throws InvalidGenomeVariant {
 		StringBuilder chars200 = new StringBuilder();
 		for (int i = 0; i < 200; ++i)
 			chars200.append("A");
@@ -119,47 +119,50 @@ public class BlockSubstitutionAnnotationBuilderTest {
 		Annotation annotation1 = new BlockSubstitutionAnnotationBuilder(infoForward, change1,
 				new AnnotationBuilderOptions()).build();
 		Assert.assertEquals(infoForward.getAccession(), annotation1.getTranscript().getAccession());
-		Assert.assertEquals("c.-204_-70+65delinsCGTT", annotation1.getNucleotideHGVSDescription());
+		Assert.assertEquals(
+				"-204_-70+65delAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAinsCGTT",
+				annotation1.getCDSNTChange().toHGVSString());
 		Assert.assertEquals(ImmutableSortedSet.of(VariantEffect.TRANSCRIPT_ABLATION), annotation1.getEffects());
 	}
 
 	@Test
-	public void testForwardIntronic() throws InvalidGenomeChange {
+	public void testForwardIntronic() throws InvalidGenomeVariant {
 		GenomeVariant change1 = new GenomeVariant(new GenomePosition(refDict, Strand.FWD, 1, 6642106,
 				PositionType.ZERO_BASED), "ACG", "CGTT");
 		Annotation annotation1 = new BlockSubstitutionAnnotationBuilder(infoForward, change1,
 				new AnnotationBuilderOptions()).build();
 		Assert.assertEquals(infoForward.getAccession(), annotation1.getTranscript().getAccession());
-		Assert.assertEquals("c.691-11_691-9delinsCGTT", annotation1.getNucleotideHGVSDescription());
-		Assert.assertEquals(ImmutableSortedSet.of(VariantEffect.CODING_TRANSCRIPT_INTRON_VARIANT), annotation1.getEffects());
+		Assert.assertEquals("691-11_691-9delACGinsCGTT", annotation1.getCDSNTChange().toHGVSString());
+		Assert.assertEquals(ImmutableSortedSet.of(VariantEffect.CODING_TRANSCRIPT_INTRON_VARIANT),
+				annotation1.getEffects());
 	}
 
 	@Test
-	public void testForwardFivePrimeUTR() throws InvalidGenomeChange {
+	public void testForwardFivePrimeUTR() throws InvalidGenomeVariant {
 		GenomeVariant change1 = new GenomeVariant(new GenomePosition(refDict, Strand.FWD, 1, 6640070,
 				PositionType.ZERO_BASED), "ACG", "CGTT");
 		Annotation annotation1 = new BlockSubstitutionAnnotationBuilder(infoForward, change1,
 				new AnnotationBuilderOptions()).build();
 		Assert.assertEquals(infoForward.getAccession(), annotation1.getTranscript().getAccession());
 		Assert.assertEquals(0, annotation1.getAnnoLoc().getRank());
-		Assert.assertEquals("c.-195_-193delinsCGTT", annotation1.getNucleotideHGVSDescription());
-		Assert.assertEquals(ImmutableSortedSet.of(VariantEffect.FIVE_PRIME_UTR_VARIANT), annotation1.getEffects());
+		Assert.assertEquals("-195_-193delACGinsCGTT", annotation1.getCDSNTChange().toHGVSString());
+		Assert.assertEquals(ImmutableSortedSet.of(VariantEffect.FIVE_PRIME_UTR_EXON_VARIANT), annotation1.getEffects());
 	}
 
 	@Test
-	public void testForwardThreePrimeUTR() throws InvalidGenomeChange {
+	public void testForwardThreePrimeUTR() throws InvalidGenomeVariant {
 		GenomeVariant change1 = new GenomeVariant(new GenomePosition(refDict, Strand.FWD, 1, 6649329,
 				PositionType.ZERO_BASED), "ACG", "CGGTT");
 		Annotation annotation1 = new BlockSubstitutionAnnotationBuilder(infoForward, change1,
 				new AnnotationBuilderOptions()).build();
 		Assert.assertEquals(infoForward.getAccession(), annotation1.getTranscript().getAccession());
 		Assert.assertEquals(10, annotation1.getAnnoLoc().getRank());
-		Assert.assertEquals("c.*58_*60delinsCGGTT", annotation1.getNucleotideHGVSDescription());
-		Assert.assertEquals(ImmutableSortedSet.of(VariantEffect.THREE_PRIME_UTR_VARIANT), annotation1.getEffects());
+		Assert.assertEquals("*58_*60delACGinsCGGTT", annotation1.getCDSNTChange().toHGVSString());
+		Assert.assertEquals(ImmutableSortedSet.of(VariantEffect.THREE_PRIME_UTR_EXON_VARIANT), annotation1.getEffects());
 	}
 
 	@Test
-	public void testForwardStartLoss() throws InvalidGenomeChange {
+	public void testForwardStartLoss() throws InvalidGenomeVariant {
 		// Testing with some START_LOST scenarios.
 
 		// Delete one base of start codon.
@@ -169,8 +172,8 @@ public class BlockSubstitutionAnnotationBuilderTest {
 				new AnnotationBuilderOptions()).build();
 		Assert.assertEquals(infoForward.getAccession(), annotation1.getTranscript().getAccession());
 		Assert.assertEquals(1, annotation1.getAnnoLoc().getRank());
-		Assert.assertEquals("c.1_3delinsCGTT", annotation1.getNucleotideHGVSDescription());
-		Assert.assertEquals("p.0?", annotation1.getAminoAcidHGVSDescription());
+		Assert.assertEquals("1_3delACGinsCGTT", annotation1.getCDSNTChange().toHGVSString());
+		Assert.assertEquals("0?", annotation1.getProteinChange().toHGVSString());
 		Assert.assertEquals(ImmutableSortedSet.of(VariantEffect.START_LOST), annotation1.getEffects());
 
 		// Delete chunk out of first exon, spanning start codon from the left.
@@ -180,8 +183,8 @@ public class BlockSubstitutionAnnotationBuilderTest {
 				new AnnotationBuilderOptions()).build();
 		Assert.assertEquals(infoForward.getAccession(), annotation2.getTranscript().getAccession());
 		Assert.assertEquals(1, annotation2.getAnnoLoc().getRank());
-		Assert.assertEquals("c.-9_2delinsGTTG", annotation2.getNucleotideHGVSDescription());
-		Assert.assertEquals("p.0?", annotation2.getAminoAcidHGVSDescription());
+		Assert.assertEquals("-9_2delCCCTCCAGACCinsGTTG", annotation2.getCDSNTChange().toHGVSString());
+		Assert.assertEquals("0?", annotation2.getProteinChange().toHGVSString());
 		Assert.assertEquals(ImmutableSortedSet.of(VariantEffect.START_LOST), annotation2.getEffects());
 
 		// Delete chunk out of first exon, spanning start codon from the right.
@@ -191,8 +194,8 @@ public class BlockSubstitutionAnnotationBuilderTest {
 				new AnnotationBuilderOptions()).build();
 		Assert.assertEquals(infoForward.getAccession(), annotation3.getTranscript().getAccession());
 		Assert.assertEquals(1, annotation3.getAnnoLoc().getRank());
-		Assert.assertEquals("c.3_13delinsCTTG", annotation3.getNucleotideHGVSDescription());
-		Assert.assertEquals("p.0?", annotation3.getAminoAcidHGVSDescription());
+		Assert.assertEquals("3_13delGGACGGCTCCTinsCTTG", annotation3.getCDSNTChange().toHGVSString());
+		Assert.assertEquals("0?", annotation3.getProteinChange().toHGVSString());
 		Assert.assertEquals(ImmutableSortedSet.of(VariantEffect.START_LOST), annotation3.getEffects());
 
 		// Deletion from before transcript, reaching into the start codon.
@@ -204,13 +207,15 @@ public class BlockSubstitutionAnnotationBuilderTest {
 				new AnnotationBuilderOptions()).build();
 		Assert.assertEquals(infoForward.getAccession(), annotation4.getTranscript().getAccession());
 		Assert.assertEquals(AnnotationLocation.INVALID_RANK, annotation4.getAnnoLoc().getRank());
-		Assert.assertEquals("c.-69-201_1delinsACCT", annotation4.getNucleotideHGVSDescription());
-		Assert.assertEquals("p.0?", annotation4.getAminoAcidHGVSDescription());
+		Assert.assertEquals(
+				"-69-201_1delTCTCACCAGGCCCTTCTTCACGACCCTGGCCCCCCATCCAGCATCCCCCCTGGCCAATCCAATATGGCCCCCGGCCCCCGGGAGGCTGTCAGTGTGTTCCAGCCCTCCGCGTGCACCCCTCACCCTGACCCAAGCCCTCGTGCTGATAAATATGATTATTTGAGTAGAGGCCAACTTCCCGTTTCTCTCTCTTGACTCCAGGAGCTTTCTCTTGCATACCCTCGCTTAGGCTGGCCGGGGTGTCACTTCTGCCTCCCTGCCCTCCAGACCAinsACCT",
+				annotation4.getCDSNTChange().toHGVSString());
+		Assert.assertEquals("0?", annotation4.getProteinChange().toHGVSString());
 		Assert.assertEquals(ImmutableSortedSet.of(VariantEffect.START_LOST), annotation4.getEffects());
 	}
 
 	@Test
-	public void testForwardStopLoss() throws InvalidGenomeChange {
+	public void testForwardStopLoss() throws InvalidGenomeVariant {
 		// Replace bases of stop codon by 4 nucleotides, frameshift case.
 		GenomeVariant change1 = new GenomeVariant(new GenomePosition(refDict, Strand.FWD, 1, 6649271,
 				PositionType.ZERO_BASED), "ACG", "CGTT");
@@ -219,8 +224,8 @@ public class BlockSubstitutionAnnotationBuilderTest {
 				new AnnotationBuilderOptions()).build();
 		Assert.assertEquals(infoForward.getAccession(), annotation1.getTranscript().getAccession());
 		Assert.assertEquals(10, annotation1.getAnnoLoc().getRank());
-		Assert.assertEquals("c.2067_*2delinsCGTT", annotation1.getNucleotideHGVSDescription());
-		Assert.assertEquals("p.*689Tyrext*25", annotation1.getAminoAcidHGVSDescription());
+		Assert.assertEquals("2067_*2delACGinsCGTT", annotation1.getCDSNTChange().toHGVSString());
+		Assert.assertEquals("(*689Tyrext*25)", annotation1.getProteinChange().toHGVSString());
 		Assert.assertEquals(ImmutableSortedSet.of(VariantEffect.COMPLEX_SUBSTITUTION, VariantEffect.STOP_LOST),
 				annotation1.getEffects());
 
@@ -231,11 +236,11 @@ public class BlockSubstitutionAnnotationBuilderTest {
 				new AnnotationBuilderOptions()).build();
 		Assert.assertEquals(infoForward.getAccession(), annotation2.getTranscript().getAccession());
 		Assert.assertEquals(10, annotation2.getAnnoLoc().getRank());
-		Assert.assertEquals("c.2066_*1delinsCGGTCG", annotation2.getNucleotideHGVSDescription());
-		Assert.assertEquals("p.*689Serext*17", annotation2.getAminoAcidHGVSDescription());
+		Assert.assertEquals("2066_*1delACTinsCGGTCG", annotation2.getCDSNTChange().toHGVSString());
+		Assert.assertEquals("(*689Serext*17)", annotation2.getProteinChange().toHGVSString());
 		// Note that the transcript here differs to the one Mutalyzer uses after the CDS.
-		Assert.assertEquals(ImmutableSortedSet.of(VariantEffect.COMPLEX_SUBSTITUTION, VariantEffect.STOP_LOST),
-				annotation2.getEffects());
+		Assert.assertEquals(ImmutableSortedSet.of(VariantEffect.FRAMESHIFT_ELONGATION,
+				VariantEffect.COMPLEX_SUBSTITUTION, VariantEffect.STOP_LOST), annotation2.getEffects());
 
 		// Delete first base of stop codon, leads to complete loss.
 		GenomeVariant change3 = new GenomeVariant(new GenomePosition(refDict, Strand.FWD, 1, 6649269,
@@ -244,15 +249,15 @@ public class BlockSubstitutionAnnotationBuilderTest {
 				new AnnotationBuilderOptions()).build();
 		Assert.assertEquals(infoForward.getAccession(), annotation3.getTranscript().getAccession());
 		Assert.assertEquals(10, annotation3.getAnnoLoc().getRank());
-		Assert.assertEquals("c.2065_2067delinsCGGT", annotation3.getNucleotideHGVSDescription());
-		Assert.assertEquals("p.*689Argext*16", annotation3.getAminoAcidHGVSDescription());
+		Assert.assertEquals("2065_2067delACGinsCGGT", annotation3.getCDSNTChange().toHGVSString());
+		Assert.assertEquals("(*689Argext*16)", annotation3.getProteinChange().toHGVSString());
 		// Note that the transcript here differs to the one Mutalyzer uses after the CDS.
-		Assert.assertEquals(ImmutableSortedSet.of(VariantEffect.COMPLEX_SUBSTITUTION, VariantEffect.STOP_LOST),
-				annotation3.getEffects());
+		Assert.assertEquals(ImmutableSortedSet.of(VariantEffect.FRAMESHIFT_VARIANT, VariantEffect.COMPLEX_SUBSTITUTION,
+				VariantEffect.STOP_LOST), annotation3.getEffects());
 	}
 
 	@Test
-	public void testForwardSplicing() throws InvalidGenomeChange {
+	public void testForwardSplicing() throws InvalidGenomeVariant {
 		// intronic splicing
 		GenomeVariant change1 = new GenomeVariant(new GenomePosition(refDict, Strand.FWD, 1, 6642116,
 				PositionType.ZERO_BASED), "G", "TT");
@@ -260,8 +265,8 @@ public class BlockSubstitutionAnnotationBuilderTest {
 				new AnnotationBuilderOptions()).build();
 		Assert.assertEquals(infoForward.getAccession(), annotation1.getTranscript().getAccession());
 		Assert.assertEquals(1, annotation1.getAnnoLoc().getRank());
-		Assert.assertEquals("c.691-1delinsTT", annotation1.getNucleotideHGVSDescription());
-		Assert.assertEquals("p.?", annotation1.getAminoAcidHGVSDescription());
+		Assert.assertEquals("691-1delGinsTT", annotation1.getCDSNTChange().toHGVSString());
+		Assert.assertEquals("?", annotation1.getProteinChange().toHGVSString());
 		Assert.assertEquals(ImmutableSortedSet.of(VariantEffect.CODING_TRANSCRIPT_INTRON_VARIANT,
 				VariantEffect.SPLICE_ACCEPTOR_VARIANT), annotation1.getEffects());
 
@@ -272,15 +277,14 @@ public class BlockSubstitutionAnnotationBuilderTest {
 				new AnnotationBuilderOptions()).build();
 		Assert.assertEquals(infoForward.getAccession(), annotation2.getTranscript().getAccession());
 		Assert.assertEquals(2, annotation2.getAnnoLoc().getRank());
-		Assert.assertEquals("c.691_693delinsAA", annotation2.getNucleotideHGVSDescription());
-		Assert.assertEquals("p.Trp231Lysfs*23", annotation2.getAminoAcidHGVSDescription());
-		Assert.assertEquals(
-				ImmutableSortedSet.of(VariantEffect.COMPLEX_SUBSTITUTION, VariantEffect.SPLICE_REGION_VARIANT),
-				annotation2.getEffects());
+		Assert.assertEquals("691_693delTGGinsAA", annotation2.getCDSNTChange().toHGVSString());
+		Assert.assertEquals("(Trp231Lysfs*23)", annotation2.getProteinChange().toHGVSString());
+		Assert.assertEquals(ImmutableSortedSet.of(VariantEffect.FRAMESHIFT_VARIANT, VariantEffect.COMPLEX_SUBSTITUTION,
+				VariantEffect.SPLICE_REGION_VARIANT), annotation2.getEffects());
 	}
 
 	@Test
-	public void testForwardFrameShiftBlockSubstitution() throws InvalidGenomeChange {
+	public void testForwardFrameShiftBlockSubstitution() throws InvalidGenomeVariant {
 		// The following case contains a shift in the nucleotide sequence.
 		GenomeVariant change1 = new GenomeVariant(new GenomePosition(refDict, Strand.FWD, 1, 6647537,
 				PositionType.ZERO_BASED), "TGCCCCACCT", "CCC");
@@ -288,15 +292,14 @@ public class BlockSubstitutionAnnotationBuilderTest {
 				new AnnotationBuilderOptions()).build();
 		Assert.assertEquals(infoForward.getAccession(), annotation1.getTranscript().getAccession());
 		Assert.assertEquals(6, annotation1.getAnnoLoc().getRank());
-		Assert.assertEquals("c.1225_1234delinsCCC", annotation1.getNucleotideHGVSDescription());
-		Assert.assertEquals("p.Cys409Profs*127", annotation1.getAminoAcidHGVSDescription());
-		Assert.assertEquals(
-				ImmutableSortedSet.of(VariantEffect.COMPLEX_SUBSTITUTION, VariantEffect.SPLICE_REGION_VARIANT),
-				annotation1.getEffects());
+		Assert.assertEquals("1225_1234delTGCCCCACCTinsCCC", annotation1.getCDSNTChange().toHGVSString());
+		Assert.assertEquals("(Cys409Profs*127)", annotation1.getProteinChange().toHGVSString());
+		Assert.assertEquals(ImmutableSortedSet.of(VariantEffect.FRAMESHIFT_TRUNCATION,
+				VariantEffect.COMPLEX_SUBSTITUTION, VariantEffect.SPLICE_REGION_VARIANT), annotation1.getEffects());
 	}
 
 	@Test
-	public void testForwardNonFrameBlockSubstitution() throws InvalidGenomeChange {
+	public void testForwardNonFrameBlockSubstitution() throws InvalidGenomeVariant {
 		// deletion of two codons, insertion of one
 		GenomeVariant change1 = new GenomeVariant(new GenomePosition(refDict, Strand.FWD, 1, 6642114,
 				PositionType.ZERO_BASED), "TAAACA", "GTT");
@@ -304,8 +307,8 @@ public class BlockSubstitutionAnnotationBuilderTest {
 				new AnnotationBuilderOptions()).build();
 		Assert.assertEquals(infoForward.getAccession(), annotation1.getTranscript().getAccession());
 		Assert.assertEquals(AnnotationLocation.INVALID_RANK, annotation1.getAnnoLoc().getRank());
-		Assert.assertEquals("c.691-3_693delinsGTT", annotation1.getNucleotideHGVSDescription());
-		Assert.assertEquals("p.Trp231Val", annotation1.getAminoAcidHGVSDescription());
+		Assert.assertEquals("691-3_693delTAAACAinsGTT", annotation1.getCDSNTChange().toHGVSString());
+		Assert.assertEquals("(Trp231Val)", annotation1.getProteinChange().toHGVSString());
 		Assert.assertEquals(ImmutableSortedSet.of(VariantEffect.COMPLEX_SUBSTITUTION,
 				VariantEffect.SPLICE_ACCEPTOR_VARIANT, VariantEffect.FEATURE_TRUNCATION), annotation1.getEffects());
 
@@ -316,8 +319,8 @@ public class BlockSubstitutionAnnotationBuilderTest {
 				new AnnotationBuilderOptions()).build();
 		Assert.assertEquals(infoForward.getAccession(), annotation2.getTranscript().getAccession());
 		Assert.assertEquals(2, annotation2.getAnnoLoc().getRank());
-		Assert.assertEquals("c.700_708delinsACC", annotation2.getNucleotideHGVSDescription());
-		Assert.assertEquals("p.Val234_Gln236delinsThr", annotation2.getAminoAcidHGVSDescription());
+		Assert.assertEquals("700_708delGTGGTTCAAinsACC", annotation2.getCDSNTChange().toHGVSString());
+		Assert.assertEquals("(Val234_Gln236delinsThr)", annotation2.getProteinChange().toHGVSString());
 		Assert.assertEquals(
 				ImmutableSortedSet.of(VariantEffect.FEATURE_TRUNCATION, VariantEffect.COMPLEX_SUBSTITUTION),
 				annotation2.getEffects());
@@ -329,13 +332,15 @@ public class BlockSubstitutionAnnotationBuilderTest {
 				new AnnotationBuilderOptions()).build();
 		Assert.assertEquals(infoForward.getAccession(), annotation3.getTranscript().getAccession());
 		Assert.assertEquals(2, annotation3.getAnnoLoc().getRank());
-		Assert.assertEquals("c.708_716delinsCT", annotation3.getNucleotideHGVSDescription());
-		Assert.assertEquals("p.Gln236Hisfs*16", annotation3.getAminoAcidHGVSDescription());
-		Assert.assertEquals(ImmutableSortedSet.of(VariantEffect.COMPLEX_SUBSTITUTION), annotation3.getEffects());
+		Assert.assertEquals("708_716delAGTGGAGGAinsCT", annotation3.getCDSNTChange().toHGVSString());
+		Assert.assertEquals("(Gln236Hisfs*16)", annotation3.getProteinChange().toHGVSString());
+		Assert.assertEquals(
+				ImmutableSortedSet.of(VariantEffect.FRAMESHIFT_TRUNCATION, VariantEffect.COMPLEX_SUBSTITUTION),
+				annotation3.getEffects());
 	}
 
 	@Test
-	public void testRealWorldCase_uc002djq_3() throws InvalidGenomeChange {
+	public void testRealWorldCase_uc002djq_3() throws InvalidGenomeVariant {
 		this.builderForward = TranscriptModelFactory
 				.parseKnownGenesLine(
 						refDict,
@@ -353,15 +358,15 @@ public class BlockSubstitutionAnnotationBuilderTest {
 				new AnnotationBuilderOptions()).build();
 		Assert.assertEquals(infoForward.getAccession(), annotation1.getTranscript().getAccession());
 		Assert.assertEquals(1, annotation1.getAnnoLoc().getRank());
-		Assert.assertEquals("c.96_112delinsACTACCAGAGGAAT", annotation1.getNucleotideHGVSDescription());
-		Assert.assertEquals("p.Lys33_Met38delinsLeuProGluGluLeu", annotation1.getAminoAcidHGVSDescription());
+		Assert.assertEquals("96_112delTAAGAAGGAGACCATCAinsACTACCAGAGGAAT", annotation1.getCDSNTChange().toHGVSString());
+		Assert.assertEquals("(Lys33_Met38delinsLeuProGluGluLeu)", annotation1.getProteinChange().toHGVSString());
 		Assert.assertEquals(
 				ImmutableSortedSet.of(VariantEffect.COMPLEX_SUBSTITUTION, VariantEffect.FEATURE_TRUNCATION),
 				annotation1.getEffects());
 	}
 
 	@Test
-	public void testRealWorldCase_uc010qzf_2() throws InvalidGenomeChange {
+	public void testRealWorldCase_uc010qzf_2() throws InvalidGenomeVariant {
 		this.builderForward = TranscriptModelFactory.parseKnownGenesLine(refDict,
 				"uc010qzf.2	chr11	+	5474637	5475707	5474718	5475657	1	5474637,	5475707,	Q9H344	uc010qzf.2");
 		this.builderForward
@@ -377,13 +382,15 @@ public class BlockSubstitutionAnnotationBuilderTest {
 				new AnnotationBuilderOptions()).build();
 		Assert.assertEquals(infoForward.getAccession(), annotation1.getTranscript().getAccession());
 		Assert.assertEquals(0, annotation1.getAnnoLoc().getRank());
-		Assert.assertEquals("c.713_718delinsACAACACT", annotation1.getNucleotideHGVSDescription());
-		Assert.assertEquals("p.Leu238Hisfs*19", annotation1.getAminoAcidHGVSDescription());
-		Assert.assertEquals(ImmutableSortedSet.of(VariantEffect.COMPLEX_SUBSTITUTION), annotation1.getEffects());
+		Assert.assertEquals("713_718delTCAACAinsACAACACT", annotation1.getCDSNTChange().toHGVSString());
+		Assert.assertEquals("(Leu238Hisfs*19)", annotation1.getProteinChange().toHGVSString());
+		Assert.assertEquals(
+				ImmutableSortedSet.of(VariantEffect.FRAMESHIFT_ELONGATION, VariantEffect.COMPLEX_SUBSTITUTION),
+				annotation1.getEffects());
 	}
 
 	@Test
-	public void testRealWorldCase_uc011ddm_2_first() throws InvalidGenomeChange {
+	public void testRealWorldCase_uc011ddm_2_first() throws InvalidGenomeVariant {
 		this.builderForward = TranscriptModelFactory
 				.parseKnownGenesLine(
 						refDict,
@@ -401,13 +408,13 @@ public class BlockSubstitutionAnnotationBuilderTest {
 				new AnnotationBuilderOptions()).build();
 		Assert.assertEquals(infoForward.getAccession(), annotation1.getTranscript().getAccession());
 		Assert.assertEquals(3, annotation1.getAnnoLoc().getRank());
-		Assert.assertEquals("c.475_477delinsCTC", annotation1.getNucleotideHGVSDescription());
-		Assert.assertEquals("p.Thr159Leu", annotation1.getAminoAcidHGVSDescription());
+		Assert.assertEquals("475_477delACGinsCTC", annotation1.getCDSNTChange().toHGVSString());
+		Assert.assertEquals("(Thr159Leu)", annotation1.getProteinChange().toHGVSString());
 		Assert.assertEquals(ImmutableSortedSet.of(VariantEffect.MNV), annotation1.getEffects());
 	}
 
 	@Test
-	public void testRealWorldCase_uc002axo_4() throws InvalidGenomeChange {
+	public void testRealWorldCase_uc002axo_4() throws InvalidGenomeVariant {
 		this.builderForward = TranscriptModelFactory
 				.parseKnownGenesLine(
 						refDict,
@@ -425,15 +432,15 @@ public class BlockSubstitutionAnnotationBuilderTest {
 				new AnnotationBuilderOptions()).build();
 		Assert.assertEquals(infoForward.getAccession(), annotation1.getTranscript().getAccession());
 		Assert.assertEquals(1, annotation1.getAnnoLoc().getRank());
-		Assert.assertEquals("c.96_112delinsACTACCAGAGGAAT", annotation1.getNucleotideHGVSDescription());
-		Assert.assertEquals("p.Lys33_Met38delinsLeuProGluGluLeu", annotation1.getAminoAcidHGVSDescription());
+		Assert.assertEquals("96_112delTAAGAAGGAGACCATCAinsACTACCAGAGGAAT", annotation1.getCDSNTChange().toHGVSString());
+		Assert.assertEquals("(Lys33_Met38delinsLeuProGluGluLeu)", annotation1.getProteinChange().toHGVSString());
 		Assert.assertEquals(
 				ImmutableSortedSet.of(VariantEffect.FEATURE_TRUNCATION, VariantEffect.COMPLEX_SUBSTITUTION),
 				annotation1.getEffects());
 	}
 
 	@Test
-	public void testRealWorldCase_uc011ddm_2_second() throws InvalidGenomeChange {
+	public void testRealWorldCase_uc011ddm_2_second() throws InvalidGenomeVariant {
 		this.builderForward = TranscriptModelFactory
 				.parseKnownGenesLine(
 						refDict,
@@ -451,13 +458,14 @@ public class BlockSubstitutionAnnotationBuilderTest {
 				new AnnotationBuilderOptions()).build();
 		Assert.assertEquals(infoForward.getAccession(), annotation1.getTranscript().getAccession());
 		Assert.assertEquals(3, annotation1.getAnnoLoc().getRank());
-		Assert.assertEquals("c.475_480delinsTAGCTC", annotation1.getNucleotideHGVSDescription());
-		Assert.assertEquals("p.Thr159*", annotation1.getAminoAcidHGVSDescription());
-		Assert.assertEquals(ImmutableSortedSet.of(VariantEffect.MNV, VariantEffect.STOP_GAINED), annotation1.getEffects());
+		Assert.assertEquals("475_480delACGACTinsTAGCTC", annotation1.getCDSNTChange().toHGVSString());
+		Assert.assertEquals("(Thr159*)", annotation1.getProteinChange().toHGVSString());
+		Assert.assertEquals(ImmutableSortedSet.of(VariantEffect.MNV, VariantEffect.STOP_GAINED),
+				annotation1.getEffects());
 	}
 
 	@Test
-	public void testRealWorldCase_uc001evp_2_second() throws InvalidGenomeChange {
+	public void testRealWorldCase_uc001evp_2_second() throws InvalidGenomeVariant {
 		this.builderForward = TranscriptModelFactory
 				.parseKnownGenesLine(
 						refDict,
@@ -475,14 +483,14 @@ public class BlockSubstitutionAnnotationBuilderTest {
 				new AnnotationBuilderOptions()).build();
 		Assert.assertEquals(infoForward.getAccession(), annotation1.getTranscript().getAccession());
 		Assert.assertEquals(6, annotation1.getAnnoLoc().getRank());
-		Assert.assertEquals("c.830_831delinsTG", annotation1.getNucleotideHGVSDescription());
-		Assert.assertEquals("p.Ala277Val", annotation1.getAminoAcidHGVSDescription());
+		Assert.assertEquals("830_831delCAinsTG", annotation1.getCDSNTChange().toHGVSString());
+		Assert.assertEquals("(Ala277Val)", annotation1.getProteinChange().toHGVSString());
 		Assert.assertEquals(ImmutableSortedSet.of(VariantEffect.MNV), annotation1.getEffects());
 	}
 
 	// This change was in clinvar37 and made problems.
 	@Test
-	public void testRealWorldCase_uc011ayb_2() throws InvalidGenomeChange {
+	public void testRealWorldCase_uc011ayb_2() throws InvalidGenomeVariant {
 		this.builderForward = TranscriptModelFactory
 				.parseKnownGenesLine(
 						refDict,
@@ -500,15 +508,15 @@ public class BlockSubstitutionAnnotationBuilderTest {
 				new AnnotationBuilderOptions()).build();
 		Assert.assertEquals(infoForward.getAccession(), annotation1.getTranscript().getAccession());
 		Assert.assertEquals(AnnotationLocation.INVALID_RANK, annotation1.getAnnoLoc().getRank());
-		Assert.assertEquals("c.1263_1266+1delinsC", annotation1.getNucleotideHGVSDescription());
-		Assert.assertEquals("p.Glu422del", annotation1.getAminoAcidHGVSDescription());
+		Assert.assertEquals("1263_1266+1delTGAGGinsC", annotation1.getCDSNTChange().toHGVSString());
+		Assert.assertEquals("(Glu422del)", annotation1.getProteinChange().toHGVSString());
 		Assert.assertEquals(ImmutableSortedSet.of(VariantEffect.COMPLEX_SUBSTITUTION,
 				VariantEffect.SPLICE_DONOR_VARIANT, VariantEffect.FEATURE_TRUNCATION), annotation1.getEffects());
 	}
 
 	// Bug found #87 on GitHub
 	@Test
-	public void testRealWorldCase_uc010nov_3() throws InvalidGenomeChange {
+	public void testRealWorldCase_uc010nov_3() throws InvalidGenomeVariant {
 		this.builderForward = TranscriptModelFactory
 				.parseKnownGenesLine(
 						refDict,
@@ -516,20 +524,45 @@ public class BlockSubstitutionAnnotationBuilderTest {
 		this.builderForward
 				.setSequence("atggcttctcacgcttgtgctgcatatcccacaccaattagacccaaggatcagttggaagtttccaggacatcttcattttatttccaccctcaatccacatttccagatgtctctgcagcaaagcgaaattccaggagaagaggacaaagatactcagagagaaaaagtaaaagaccgaagaaggaggctggagagaccaggatccttccagctgaacaaagtcagccacaaagcagactagccagccggctacaattggagtcagagtcccaaagacatgggcttgttagagtgctgtgcaagatgtctggtaggggccccctttgcttccctggtggccactggattgtgtttctttggggtggcactgttctgtggctgtggacatgaagccctcactggcacagaaaagctaattgagacctatttctccaaaaactaccaagactatgagtatctcatcaatgtgatccatgccttccagtatgtcatctatggaactgcctctttcttcttcctttatggggccctcctgctggctgagggcttctacaccaccggcgcagtcaggcagatctttggcgactacaagaccaccatctgcggcaagggcctgagcgcaacggtaacagggggccagaaggggaggggttccagaggccaacatcaagctcattctttggagcgggtgtgtcattgtttgggaaaatggctaggacatcccgacaagtttgtgggcatcacctatgccctgaccgttgtgtggctcctggtgtttgcctgctctgctgtgcctgtgtacatttacttcaacacctggaccacctgccagtctattgccttccccagcaagacctctgccagtataggcagtctctgtgctgatgccagaatgtatggtgttctcccatggaatgctttccctggcaaggtttgtggctccaaccttctgtccatctgcaaaacagctgagttccaaatgaccttccacctgtttattgctgcatttgtgggggctgcagctacactggtttccctgctcaccttcatgattgctgccacttacaactttgccgtccttaaactcatgggccgaggcaccaagttctgatcccccgtagaaatccccctttctctaatagcgaggctctaaccacacagcctacaatgctgcgtctcccatcttaactctttgcctttgccaccaactggccctcttcttacttgatgagtgtaacaagaaaggagagtcttgcagtgattaaggtctctctttggactctcccctcttatgtacctcttttagtcattttgcttcatagctggttcctgctagaaatgggaaatgcctaagaagatgacttcccaactgcaagtcacaaaggaatggaggctctaattgaattttcaagcatctcctgaggatcagaaagtaatttcttctcaaagggtacttccactgatggaaacaaagtggaaggaaagatgctcaggtacagagaaggaatgtctttggtcctcttgccatctataggggccaaatatattctctttggtgtacaaaatggaattcattctggtctctctattaccactgaagatagaagaaaaaagaatgtcagaaaaacaataagagcgtttgcccaaatctgcctattgcagctgggagaagggggtcaaagcaaggatctttcacccacagaaagagagcactgaccccgatggcgatggactactgaagccctaactcagccaaccttacttacagcataagggagcgtagaatctgtgtagacgaagggggcatctggccttacacctcgttagggaagagaaacagggtgttgtcagcatcttctcactcccttctccttgataacagctaccatgacaaccctgtggtttccaaggagctgagaatagaaggaaactagcttacatgagaacagactggcctgaggagcagcagttgctggtggctaatggtgtaacctgagatggccctctggtagacacaggatagataactctttggatagcatgtctttttttctgttaattagttgtgtactctggcctctgtcatatcttcacaatggtgctcatttcatgggggtattatccattcagtcatcgtaggtgatttgaaggtcttgatttgttttagaatgatgcacatttcatgtattccagtttgtttattacttatttggggttgcatcagaaatgtctggagaataattctttgattatgactgttttttaaactaggaaaattggacattaagcatcacaaatgatattaaaaattggctagttgaatctattgggattttctacaagtattctgcctttgcagaaacagatttggtgaatttgaatctcaatttgagtaatctgatcgttctttctagctaatggaaaatgattttacttagcaatgttatcttggtgtgttaagagttaggtttaacataaaggttattttctcctgatatagatcacataacagaatgcaccagtcatcagctattcagttggtaagcttccaggaaaaaggacaggcagaaagagtttgagacctgaatagctcccagatttcagtcttttcctgtttttgttaactttgggttaaaaaaaaaaaaagtctgattggttttaattgaaggaaagatttgtactacagttcttttgttgtaaagagttgtgttgttcttttcccccaaagtggtttcagcaatatttaaggagatgtaagagctttacaaaaagacacttgatacttgttttcaaaccagtatacaagataagcttccaggctgcatagaaggaggagagggaaaatgttttgtaagaaaccaatcaagataaaggacagtgaagtaatccgtaccttgtgttttgttttgatttaataacataacaaataaccaacccttccctgaaaacctcacatgcatacatacacatatatacacacacaaagagagttaatcaactgaaagtgtttccttcatttctgatatagaattgcaattttaacacacataaaggataaacttttagaaacttatcttacaaagtgtattttataaaattaaagaaaataaaattaagaatgttctcaatcaaaaaaaaaaaaaaa"
 						.toUpperCase());
-		this.builderForward.setGeneSymbol("PLP1");
+		this.builderForward.setGeneSymbol("(P1)");
 		this.infoForward = builderForward.build();
 		// RefSeq NM_001128834.1
 
-		GenomeVariant change1 = new GenomeVariant(new GenomePosition(refDict, Strand.FWD, refDict.getContigNameToID().get("X"),
-				103041655, PositionType.ONE_BASED), "GGTGATC", "A");
+		GenomeVariant change1 = new GenomeVariant(new GenomePosition(refDict, Strand.FWD, refDict.getContigNameToID()
+				.get("X"), 103041655, PositionType.ONE_BASED), "GGTGATC", "A");
 		Annotation annotation1 = new BlockSubstitutionAnnotationBuilder(infoForward, change1,
 				new AnnotationBuilderOptions()).build();
 		Assert.assertEquals(infoForward.getAccession(), annotation1.getTranscript().getAccession());
 		Assert.assertEquals(AnnotationLocation.INVALID_RANK, annotation1.getAnnoLoc().getRank());
-		Assert.assertEquals("c.453_453+6delinsA", annotation1.getNucleotideHGVSDescription());
-		Assert.assertEquals("p.=", annotation1.getAminoAcidHGVSDescription());
+		Assert.assertEquals("453_453+6delGGTGATCinsA", annotation1.getCDSNTChange().toHGVSString());
+		Assert.assertEquals("(=)", annotation1.getProteinChange().toHGVSString());
 		Assert.assertEquals(ImmutableSortedSet.of(VariantEffect.COMPLEX_SUBSTITUTION,
 				VariantEffect.SPLICE_DONOR_VARIANT, VariantEffect.FEATURE_TRUNCATION), annotation1.getEffects());
+	}
+
+	@Test
+	public void testRealWorldCase_uc001fkt_3_fifth() throws InvalidGenomeVariant {
+		this.builderForward = TranscriptModelFactory
+				.parseKnownGenesLine(
+						refDict,
+						"uc001fkt.3	chr1	-	155305051	155532324	155307450	155491310	28	155305051,155307879,155309118,155311726,155313104,155313394,155313973,155316173,155317446,155319117,155319332,155322496,155324263,155327106,155327375,155330091,155340294,155340567,155348071,155348293,155349833,155365249,155385534,155408117,155429587,155447676,155490890,155531943,	155307542,155308181,155309159,155311893,155313277,155313533,155314064,155316260,155317695,155319250,155319387,155322649,155324421,155327201,155327540,155330200,155340441,155340774,155348180,155348339,155349907,155365344,155385714,155408859,155429689,155452240,155491409,155532324,	Q9NR48-2	uc001fkt.3");
+		this.builderForward
+				.setSequence("aggagtggaaggttgaggggggcgctaggcgcccttcgctccctccctctggaggagctgccgccgccaccgccgccactctgctgctgccgccgccgccgccgccgctcccgccgccattttgggttcgctttgcggaggggagacgatcccagtctcggttgcgggacccgcctcccctcagtttgccccctttagccttccacctttcccttctcctctctcgcatttccgccagtcagcttacccgctggccgcctcctgacaagcgggagggatccgccgtggacccagggaagcggaggagcctggcggccaccccctcttccccacttccctgcactctcatcgctctcggcctcggcctcggcctccgacacgagaaagatgctggtttcgagttttggagatccttgttttttatggaacacagttctgtaaaattttcataagattccttggcaataacatacgcttgtgatggaccctagaaatactgctatgttaggattgggttctgattccgaaggtttttcaagaaagagtccttctgccatcagtactggcacattggtcagtaagagagaagtagagctagaaaaaaacacaaaggaggaagaggaccttcgcaaacggaatcgagaaagaaacatcgaagctgggaaagatgatggtttgactgatgcacagcaacagttttcagtgaaagaaacaaacttttcagagggaaatttaaaattgaaaattggcctccaggctaagagaactaaaaaacctccaaagaacttggagaactatgtatgtcgacctgccataaaaacaactattaagcacccaaggaaagcacttaaaagtggaaagatgacggatgaaaagaatgaacactgtccttcaaaacgagacccttcaaagttgtacaagaaagcagatgatgttgcagccattgaatgccagtctgaagaagtcatccgtcttcattcacagggagaaaacaatcctttgtctaagaagctgtctccagtacactcagaaatggcagattatattaatgcaacgccatctactcttcttggtagccgggatcctgatttaaaggacagagcattacttaatggaggaactagtgtaacagaaaagttggcacagctgattgctacctgtcctccttccaagtcttccaagacaaaaccgaagaagttaggaactggcactacagcaggattggttagcaaggatttgatcaggaaagcaggtgttggctctgtagctggaataatacataaggacttaataaaaaagccaaccatcagcacagcagttggattggtaactaaagatcctgggaaaaagccagtgtttaatgcagcagtaggattggtcaataaggactctgtgaaaaaactgggaactggcactacagcggtattcattaataaaaacttaggcaaaaagccaggaactatcactacagtaggactgctaagcaaagattcaggaaagaagctaggaattggtattgttccaggtttagtgcataaagagtctggcaagaagttaggacttggcactgtggttggactggttaataaagatttgggaaagaaattgggttctactgttggcctagtggccaaggactgtgcaaagaagattgtagcaagttcagcaatgggattggttaataaggacattggaaagaaactaatgagttgtcctttggcaggtctgatcagtaaagatgccataaaccttaaagccgaagcactgctccccactcaggaaccgcttaaggcttcttgtagtacaaacatcaataatcaggaaagtcaggaactttctgaatccctgaaagatagtgccaccagcaaaacttttgaaaagaatgttgtacggcagaataaagaaagcatattggaaaagttctcagtacgaaaagaaatcattaatttggagaaagaaatgtttaatgaaggaacatgcattcagcaagacagtttctcatccagtgaaaagggatcttatgaaacctcaaagcatgaaaagcagcctcctgtatattgcacttctccggactttaaaatgggaggtgcttctgatgtatctaccgctaaatccccattcagtgcagtaggagaaagcaatctcccttccccatcacctactgtatctgttaatcctttaaccagaagtccccctgaaacttcttcacagttggctcctaatccattacttttaagttctactacagaactaatcgaagaaatttctgaatctgttggaaagaaccagtttacttctgaaagtacccacttgaacgttggtcataggtcagttggtcatagtataagtattgaatgtaaagggattgataaagaggtaaatgattcaaaaactacccatatagatattccaagaataagctcttcccttggaaaaaagccaagtttgacttctgaatccagcattcatactattactccttcagttgttaacttcactagtttatttagtaataagccttttttaaaactgggtgcagtatctgcatcagacaaacactgccaagttgctgaaagcctaagtactagtttgcagtccaaaccattaaaaaaaagaaaaggaagaaaacctcggtggactaaagtggtggcaagaagcacatgccggtctccaaaagggctagaattagaaagatcagagctttttaaaaacgtttcatgtagctcactatcaaatagtaattctgagccagccaagtttatgaaaaacattggacccccttcatttgtagatcatgacttccttaaacgccgattgccaaagttgagcaaatccacagctccatctcttgctctcttagctgatagtgaaaaaccatctcataagtcttttgctactcacaaactatcctccagtatgtgtgtctctagtgaccttttgtctgatatttataagcccaaaagaggaaggcctaaatctaaggagatgcctcaactggaagggccacctaaaaggactttaaaaatccctgcttctaaagtgttttctttacagtctaaggaagaacaagaacccccaattttacagccagaaattgaaatcccttccttcaaacaaggtctgtctgtgtctccttttccaaaaaagagaggcaggcctaagaggcaaatgaggtcaccagtcaagatgaagccacctgtactgtcagtggctccatttgttgccactgaaagtccaagcaagctagaatctgaaagtgacaaccatagaagtagcagtgatttctttgagagcgaggatcaacttcaggatccagatgacctagatgacagtcataggccaagtgtctgtagtatgagtgaccttgagatggaaccagataaaaaaattaccaagagaaacaatggacaattaatgaaaacaattatccgcaaaataaataaaatgaagactttaaagagaaagaaactgttgaatcagattctttcaagttctgtagaatcaagtaataaagggaaagtgcaatccaaactccataatacggtatcaagtcttgctgccacatttggctctaaattgggccaacagataaatgtcagcaagaaaggaaccatttatataggaaagagaagaggtcgcaaaccaaaaactgtcttaaatggtattctttctggtagtcctactagccttgctgttcttgagcaaacagctcaacaggcagctgggtcagcattaggacagattcttcccccattactgccttcatctgctagtagttctgagattcttccatcacctatttgctctcagtcttctgggactagtggaggtcagagccctgtaagtagtgatgcaggttttgttgaacccagttcagtgccatatttgcatttacactccagacagggcagtatgattcagactcttgcaatgaagaaggcctcaaaggggaggaggcggttatctcctcctactttgttgccaaattctccttcgcacttgagtgaactcacatctctaaaagaagctactccttccccaatcagtgagtctcatagtgatgagaccattcccagtgatagtggaattggaacagataataacagcacatcagacagggcagagaaattttgtgggcaaaaaaagaggaggcattcttttgagcatgtttctctgattccccctgaaacctctacagtgctaagcagtcttaaagaaaaacataaacacaaatgtaagcgcaggaatcatgattacctcagctatgacaagatgaaaaggcagaaacgaaaacggaaaaagaaatatccccagcttcgaaatagacaggatccagactttattgcagagctggaggaactaataagtcgcctaagtgaaattcggatcactcatcgaagtcatcattttatcccccgagatcttctgccaactatctttcgaatcaactttaatagtttctatacacatccttctttccccttagaccctttgcactacattcgaaaacctgacttaaaaaagaaaagagggagaccccctaagatgagggaggcaatggctgaaatgccttttatgcacagccttagttttcctctttctagtactggattctatccatcttatggtatgccttactctccttcaccccttacagctgctcccataggattaggttactatggaaggtatcctcccactctttatccacctcctccatctccttctttcaccacgccacttccacctccttcctatatgcatgctggtcatttacttctcaatcctgccaaataccataagaaaaagcataagctacttcgacaggaggcctttcttacaaccagcaggactcccctcctttccatgagtacctaccccagtgttcctcctgagatggcctatggttggatggttgagcacaaacacaggcaccgtcacaaacacagagaacaccgttcttctgaacaaccccaggtttctatggacactggctcttcccgatctgtcctggaatctttgaagcgctatagatttggaaaggatgctgttggagagcgatataagcataaggaaaagcaccgttgtcacatgtcctgccctcatctctctccttcaaaaagcttaataaacagagaggaacagtgggtccaccgagagccttcagaatctagtccattggccttgggattgcagacacctttacagattgactgttcagaaagttctccaagcttatcccttggaggattcactcccaactctgagccagccagcagtgatgaacatacaaaccttttcacaagtgcaataggcagctgcagagtttcaaaccctaactccagtggccggaagaaattaactgacagccctggactcttttctgcacaggacacttcactaaatcggcttcacagaaaggagtcactgccttctaacgaaagggcagtacagactttggcaggctcccagccaacctctgataaaccctcccagcggccatcagagagcacaaattgtagccctacccggaaaaggtcttcatctgagagtacttcttcaacagtaaacggagttccctctcgaagtccaagattagttgcttctggggatgactctgtggatagtctgctgcagcggatggtacaaaatgaggaccaagagcccatggagaaaagtattgatgctgtgattgcaactgcctctgcaccaccttcttccagtccaggccgtagccacagcaaggaccgaaccctgggaaaaccagacagccttttagtgcctgcagtcacaagtgactcttgcaataatagcatctcactcctatctgaaaagttgacaagcagctgttccccccatcatatcaagagaagtgtagtggaagctatgcaacgccaagctcggaaaatgtgcaattacgacaaaatcttggccacaaagaaaaacctagaccatgtcaataaaatcttaaaagccaaaaaacttcaaaggcaggccaggacagggaataactttgtgaaacgtaggccaggtcgacctcggaaatgtccccttcaggctgtcgtatcaatgcaagcattccaggctgctcagtttgtcaacccagaattgaacagagacgaggaaggagcagcactgcacctcagtcctgacacagttacagatgtaattgaggctgttgttcagagtgtaaatctgaacccagaacataaaaaggggttgaagagaaaaggttggctattggaagaacagaccagaaaaaagcagaagccattaccagaggaagaagagcaagagaataataaaagctttaatgaagcaccagttgagattcccagtccttctgaaaccccagctaaaccttctgaacctgaaagtaccttgcagcctgtgctttctctcatcccaagggaaaagaagcccccacgtcccccaaagaagaagtatcagaaagcagggctgtattctgacgtttacaaaactacagacccaaagagtcgattgatccaattaaagaaagagaagctggagtatactccaggagagcatgaatatggattatttccagcgcccattcatgttggaaagtatctaagacaaaagagaattgacttccagcttccttatgatatcctttggcagtggaaacacaatcagctatacaaaaagccagatgtcccactatataagaaaattcgttcaaatgtctacgttgatgtcaaacccctttctggttacgaagctaccacctgtaactgtaagaagccagatgatgacaccaggaagggctgtgttgatgactgcctcaatagaatgatctttgctgagtgttcccccaacacttgcccatgtggcgagcaatgctgtaaccagaggatacagaggcatgaatgggtgcaatgtctagaacgatttcgagctgaggaaaaaggttggggaatcagaaccaaagagcccctaaaagctgggcagttcatcattgaatacctaggggaggtcgtcagtgaacaggagttcaggaacaggatgattgagcagtatcataatcacagtgaccactactgcctgaacctggatagtgggatggtgattgacagttaccgcatgggaaatgaggcccgattcatcaaccatagctgtgacccaaattgtgaaatgcagaaatggtctgttaatggagtataccggattggactctatgctcttaaagacatgccagctgggactgaactcacttatgattataactttcattccttcaatgtggaaaaacagcaactttgtaagtgtggctttgagaaatgtcgaggaatcatcggaggcaagagtcagcgtgtgaatggactcaccagcagcaaaaacagccagcccatggccacacacaaaaaatctggacggtcaaaagagaagagaaagtctaagcacaagctgaagaaaaggagaggccatctctctgaggaacccagtgaaaatatcaacaccccaactagattgaccccccaattacagatgaagccaatgtccaatcgtgaaaggaactttgtgttaaagcatcatgtattcttggtccgaaactgggagaagattcgtcaaaaacaggaggaagtaaagcacaccagtgataatattcactcagcatcattatatacccgttggaatgggatctgccgagatgatgggaatatcaagtctgatgtcttcatgacccagttctctgccctgcagacagctcgatctgttcgaacaagacggttggcagctgcagaggaaaatattgaagtggctcgggcagcccgcctagcccagatcttcaaagaaatttgtgatggtatcatctcttataaagattcttcccggcaagcactggcagctccacttttgaaccttcccccaaagaaaaagaatgctgattattatgagaagatctctgatcccctagatcttatcaccatagagaagcagatcctcactggttactataagacagtggaagcttttgatgctgacatgctcaaagtctttcggaatgctgagaagtactatgggcgtaaatccccagttgggagagatgtttgtcgtctacgaaaggcctattacaatgcccggcatgaggcatcagcccagattgatgagattgtgggagagacagcaagtgaggcagacagcagtgagacctcagtctctgaaaaggagaatgggcatgagaaggacgacgatgttattcgctgtatctgtggcctctacaaggatgaaggtctcatgatccagtgtgacaagtgcatggtatggcagcactgtgattgtatgggagtgaactcagatgtggagcactacctttgtgagcagtgtgacccaaggcctgtggacagggaggttcccatgatccctcggccccactatgcccaacctggctgtgtctacttcatctgtttgctccgagatgacttgctgcttcgtcagggtgactgtgtgtatctgatgagggatagtcggcgcacccctgatggccacccggtccgtcagtcctatcgactgttatctcacattaaccgagataaacttgacatctttcgcattgagaagctttggaagaatgaaaaagaggaacggtttgcctttggtcaccattatttccgtccccacgaaacacaccactctccatcccgtcggttctatcataatgaactatttcgggtgccactctatgagatcattcccttggaggctgtagtggggacctgctgtgtgttggacctttatacgtattgtaaagggagacccaaaggagtaaaggagcaagatgtgtacatctgtgattatcggcttgacaagtcagcacacctgttttacaagatccaccggaaccgctatcctgtctgcaccaaaccctatgcttttgatcacttccccaagaagctcactcccaaaaaagatttctcgcctcattacgtcccagacaactacaagaggaatggaggacgatcatcctggaagtctgagcgctcaaagccacccctaaaagacttgggccaggaggatgatgctctacccttgattgaagaggttctagccagtcaagagcaagcagccaatgagatacccagcctggaggagccagaacgggaaggggccactgctaacgtcagtgagggtgaaaaaaaaacagaggaaagtagtcaagaaccccagtcaacctgtacccctgaggaacgacggcataaccaacgggaacgactcaaccagatcttgctcaatctccttgaaaaaatccctggaaaaaatgccattgatgtgacctacttgctggaggaaggatcaggcaggaaactgcgaaggcgtactttgtttatcccagaaaacagctttcgaaagtgaccctcaaagaatgagaacctcaagcatctgggatccagtggagctaatcagtcctgcctcctgctctctgggtatagacaggggtgggaagggtccatctgggcaaggggaatggggccatgttgttgacattaggtacttaataagccttggagctagtggagagggagaggaaagggttctgtccaagacagttcaggttaattaattttcttctccattgcttcaccttaagggttaataatgtagagaggagggaggaccacattgatgaccagaacctactggtactttatagcatttgccccaccccacagcttaggtttttctgtcatcctcagatcccacaggcattgcgaagaagctgcttcctatacccaggtataactcaaaatccaaagggatagggccaggatccctattcctaccccatctattctctgttggctccaagagctaccccagagaccttaaacagaaacagtagctgaggcttcttcctagatacctgactagggaagtttgtctctcctttcttgcccaaccaggtcaaagtaaaatgtgagttgacagctcaaagcacttgtaactgctgccccctccctacctctactccccaaaatggaatcatgggatagggaaggcccccatggggtcagaagggcacggtagttcttgcaattatttttgttttacccttcataacctgtcaaacatatttttttctaatgagaaagccaggcccccgccagcacacatgctgtttttaatgcgctgtagttcttgtgtgtctgctgtgctgtgcaaatggagattcagttcaaaataaaatcatttaaaaacctacataaaaagaactctaaacccacccctgcaacaaaagtcactacataaactgttcagcagtattcacctatcagagtatttgttgtgagtatagattatcaattgaaaacactactcttgttttcttaattgtacagttttcaatgtccctttcttaaagagacagtatatttctcttcacccctagcccatcttccctcaccctcctgaatgacatcaggaggtatatccagggtgtctccttccttcctactctcttgaccagaagttaacagactatactgtctctttaaaaataaaatttaaaaagctttgttgtcttttcagacatacatatgcatatatgttttagatgttcttataagagaaaagatggtttttaaatgtgccaagttgtgtgtgtgtgtgtatatatatgtgtgtatgtgtgtgtatatatatatgtgtgtgtgtatatatatacacacacacacacacacctgctgtgtgattggtaagcaatacaatagtaaacatgtccccattacttttttctaatattggaccaatgctgtcctaattgtacatttccccttatggtgacgatgctctgactcgtttaggtagacacattgaccaccttccattccattaaatattttttcctttttcccctttctgtgtcattcttgaggaaaaaacaaaagagagaggggatgccaatgatccccttgagcagagaaaaagcaaaataaatattttattaaagaaaaaagagaattaagaaaatagtttggagtattttcttactgtagagaagcactgtacattactaagagacctgggtataagatactcacatgtggagctggaaaaatcgcatgtccaagcccgtttgagtggtttcttttgtttttcattgcagggagtgggtgggagggaggtgggactaggggcactttgggggtctccttttagtcaaaagcgagaaaatgacaagaaagagattaaaattcaatgtttcctttatagtgttaaacactaaaattttaaaaaagatgaaaaagaaaaaaaaactttgtaaaatgcgagaacagaagcaaaagacactacgctctgtcattttatctttcttttgttgaaagactaaaaaaaaactgaaatgttttttagacaatcaaatgttaggtaagtgcaaaaacttgttttttcttactggtgtagaaattaatgcctttttttatttttcagttattttataataacgaaataaaaagaaccccccagctgccaggcgggttttggtgtttgaaatgcggggcaaagcactacatcactgcaaatagatacagagttagtctgcatgtctgtaggctgtgtgattgcggaaaatataaatgctgctaatatatttcctttttacaaaagcatatctaaatagatgattgttttgatgttaatctttgtaaattatgtattaccaattttaacattggatgtaattgcatacaaagcttgcatctcaatccttgaaagtctagtattaaatggaaaaaacttttcctaactgtggaaaaaaaaaaa"
+						.toUpperCase());
+		this.builderForward.setGeneSymbol("ASH1L");
+		this.infoForward = builderForward.build();
+		// RefSeq REFSEQ_ID
+
+		GenomeVariant change1 = new GenomeVariant(new GenomePosition(refDict, Strand.FWD, 1, 155348067,
+				PositionType.ZERO_BASED), "GTA", "AGG");
+		Annotation annotation1 = new BlockSubstitutionAnnotationBuilder(infoForward, change1,
+				new AnnotationBuilderOptions()).build();
+		Assert.assertEquals(infoForward.getAccession(), annotation1.getTranscript().getAccession());
+		Assert.assertEquals(9, annotation1.getAnnoLoc().getRank());
+		Assert.assertEquals("6332+2_6332+4delTACinsCCT", annotation1.getCDSNTChange().toHGVSString());
+		Assert.assertEquals("?", annotation1.getProteinChange().toHGVSString());
+		Assert.assertEquals(ImmutableSortedSet.of(VariantEffect.CODING_TRANSCRIPT_INTRON_VARIANT,
+				VariantEffect.SPLICE_DONOR_VARIANT), annotation1.getEffects());
 	}
 
 }

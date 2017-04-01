@@ -6,7 +6,7 @@ import de.charite.compbio.jannovar.impl.util.StringUtil;
 /**
  * Position on a transcript.
  *
- * @author Manuel Holtgrewe <manuel.holtgrewe@charite.de>
+ * @author <a href="mailto:manuel.holtgrewe@charite.de">Manuel Holtgrewe</a>
  */
 @Immutable
 public final class TranscriptPosition {
@@ -55,7 +55,7 @@ public final class TranscriptPosition {
 	 */
 	@Override
 	public String toString() {
-		return StringUtil.concatenate(transcript.getAccession(), "n.", pos + 1);
+		return StringUtil.concatenate(transcript.getAccession(), ":n.", pos + 1);
 	}
 
 	/*

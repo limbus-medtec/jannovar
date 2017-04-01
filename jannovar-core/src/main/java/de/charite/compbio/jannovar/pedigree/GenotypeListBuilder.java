@@ -7,8 +7,9 @@ import com.google.common.collect.ImmutableList;
 /**
  * Builder for {@link GenotypeList}.
  *
- * @author Manuel Holtgrewe <manuel.holtgrewe@charite.de>
+ * @author <a href="mailto:manuel.holtgrewe@charite.de">Manuel Holtgrewe</a>
  */
+@Deprecated
 public class GenotypeListBuilder {
 	private final String geneID;
 	private boolean isXChromosomal;
@@ -26,7 +27,7 @@ public class GenotypeListBuilder {
 	}
 
 	/**
-	 * Set "is X chromosomal" flag of next build GenotypeList.
+	 * Set "is X chromosomal" flag of next build GenotypeCalls.
 	 *
 	 * @param isXChromosomal
 	 *            <code>true</code> if the next built genotype list is X chromosomal

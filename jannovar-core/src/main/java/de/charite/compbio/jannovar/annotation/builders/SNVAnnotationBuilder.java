@@ -6,34 +6,39 @@ import com.google.common.collect.ImmutableList;
 
 import de.charite.compbio.jannovar.annotation.Annotation;
 import de.charite.compbio.jannovar.annotation.AnnotationMessage;
-import de.charite.compbio.jannovar.annotation.InvalidGenomeChange;
+import de.charite.compbio.jannovar.annotation.InvalidGenomeVariant;
 import de.charite.compbio.jannovar.annotation.VariantEffect;
-import de.charite.compbio.jannovar.impl.util.StringUtil;
+import de.charite.compbio.jannovar.hgvs.nts.change.NucleotideChange;
+import de.charite.compbio.jannovar.hgvs.nts.change.NucleotideSubstitution;
+import de.charite.compbio.jannovar.hgvs.protein.change.ProteinChange;
+import de.charite.compbio.jannovar.hgvs.protein.change.ProteinExtension;
+import de.charite.compbio.jannovar.hgvs.protein.change.ProteinMiscChange;
+import de.charite.compbio.jannovar.hgvs.protein.change.ProteinMiscChangeType;
+import de.charite.compbio.jannovar.hgvs.protein.change.ProteinSubstitution;
 import de.charite.compbio.jannovar.impl.util.Translator;
 import de.charite.compbio.jannovar.reference.CDSPosition;
-import de.charite.compbio.jannovar.reference.GenomeVariant;
 import de.charite.compbio.jannovar.reference.GenomeInterval;
+import de.charite.compbio.jannovar.reference.GenomeVariant;
+import de.charite.compbio.jannovar.reference.InvalidCodonException;
 import de.charite.compbio.jannovar.reference.ProjectionException;
 import de.charite.compbio.jannovar.reference.TranscriptModel;
 import de.charite.compbio.jannovar.reference.TranscriptPosition;
 import de.charite.compbio.jannovar.reference.TranscriptSequenceDecorator;
 
-// TODO(holtgrew): Mutations near splice sites should be annotated as "p.?" as Mutalyzer does.
-
 /**
- * Builds {@link Annotation} objects for the SNV {@link GenomeVariant}s in the given {@link TranscriptInfo}.
+ * Builds {@link Annotation} objects for the SNV {@link GenomeVariant}s in the given {@link TranscriptModel}
  *
- * @author Manuel Holtgrewe <manuel.holtgrewe@charite.de>
+ * @author <a href="mailto:manuel.holtgrewe@charite.de">Manuel Holtgrewe</a>
  */
 public final class SNVAnnotationBuilder extends AnnotationBuilder {
 
 	/**
-	 * Override substitution annotation string in the case of coding change.
+	 * Override {@link NucleotideSubstitution} in the case of coding change.
 	 *
 	 * For changes in coding regions, this is necessary since the transcript might not be the same as the reference
 	 * (that the VCF file is generated from).
 	 */
-	private String hgvsSNVOverride = null;
+	private NucleotideSubstitution ntSubstitutionOverride = null;
 
 	/**
 	 * @param transcript
@@ -42,15 +47,16 @@ public final class SNVAnnotationBuilder extends AnnotationBuilder {
 	 *            {@link GenomeVariant} to build the annotation with
 	 * @param options
 	 *            the configuration to use for the {@link AnnotationBuilder}
-	 * @throws InvalidGenomeChange
+	 * @throws InvalidGenomeVariant
 	 *             if <code>change</code> did not describe a deletion
 	 */
-	SNVAnnotationBuilder(TranscriptModel transcript, GenomeVariant change, AnnotationBuilderOptions options) throws InvalidGenomeChange {
+	SNVAnnotationBuilder(TranscriptModel transcript, GenomeVariant change, AnnotationBuilderOptions options)
+			throws InvalidGenomeVariant {
 		super(transcript, change, options);
 
 		// guard against invalid genome change
 		if (change.getRef().length() != 1 || change.getAlt().length() != 1)
-			throw new InvalidGenomeChange("GenomeChange " + change + " does not describe a SNV.");
+			throw new InvalidGenomeVariant("GenomeChange " + change + " does not describe a SNV.");
 	}
 
 	@Override
@@ -97,7 +103,15 @@ public final class SNVAnnotationBuilder extends AnnotationBuilder {
 		// where the transcript differs from the reference. This inconsistency of the reference and the transcript is
 		// not necessarily an error in the data base but can also occur in the case of post-transcriptional changes of
 		// the transcript.
-		String transcriptCodon = seqDecorator.getCodonAt(txPos, cdsPos);
+		String transcriptCodon;
+		try {
+			transcriptCodon = seqDecorator.getCodonAt(txPos, cdsPos);
+		} catch (InvalidCodonException e) {
+			// Bail out in the case of invalid codon from sequence
+			return new Annotation(transcript, change, new ArrayList<VariantEffect>(), locAnno, getGenomicNTChange(),
+					getCDSNTChange(), ProteinMiscChange.build(true, ProteinMiscChangeType.DIFFICULT_TO_PREDICT),
+					ImmutableList.of(AnnotationMessage.ERROR_PROBLEM_DURING_ANNOTATION));
+		}
 		String wtCodon = TranscriptSequenceDecorator.codonWithUpdatedBase(transcriptCodon, frameShift,
 				change.getRef().charAt(0));
 		String varCodon = TranscriptSequenceDecorator.codonWithUpdatedBase(transcriptCodon, frameShift,
@@ -107,21 +121,22 @@ public final class SNVAnnotationBuilder extends AnnotationBuilder {
 		// positions).
 		char wtNT = wtCodon.charAt(frameShift); // wild type nucleotide
 		char varNT = varCodon.charAt(frameShift); // wild type amino acid
-		hgvsSNVOverride = StringUtil.concatenate(wtNT, ">", varNT);
+		ntSubstitutionOverride = new NucleotideSubstitution(false, ntChangeRange.getFirstPos(),
+				Character.toString(wtNT), Character.toString(varNT));
 
 		// Construct annotation part for the protein.
-		String wtAA = Translator.getTranslator().translateDNA3(wtCodon);
-		String varAA = Translator.getTranslator().translateDNA3(varCodon);
-		String protAnno = StringUtil.concatenate("p.", wtAA, cdsPos.getPos() / 3 + 1, varAA);
+		String wtAA = Translator.getTranslator().translateDNA(wtCodon);
+		String varAA = Translator.getTranslator().translateDNA(varCodon);
+		ProteinChange proteinChange = ProteinSubstitution.build(true, wtAA, cdsPos.getPos() / 3, varAA);
 		if (wtAA.equals(varAA)) // simplify in the case of synonymous SNV
-			protAnno = StringUtil.concatenate("p.=");
+			proteinChange = ProteinMiscChange.build(true, ProteinMiscChangeType.NO_CHANGE);
 
 		// Compute variant type.
 		ArrayList<VariantEffect> varTypes = computeVariantTypes(wtAA, varAA);
 		GenomeInterval changeInterval = change.getGenomeInterval();
 		if (so.overlapsWithTranslationalStartSite(changeInterval)) {
 			varTypes.add(VariantEffect.START_LOST);
-			protAnno = "p.0?";
+			proteinChange = ProteinMiscChange.build(true, ProteinMiscChangeType.NO_PROTEIN);
 		} else if (so.overlapsWithTranslationalStopSite(changeInterval)) {
 			if (wtAA.equals(varAA)) { // change in stop codon, but no AA change
 				varTypes.add(VariantEffect.STOP_RETAINED_VARIANT);
@@ -130,7 +145,8 @@ public final class SNVAnnotationBuilder extends AnnotationBuilder {
 				String varNTString = seqChangeHelper.getCDSWithGenomeVariant(change);
 				String varAAString = Translator.getTranslator().translateDNA(varNTString);
 				int stopCodonPos = varAAString.indexOf('*', cdsPos.getPos() / 3);
-				protAnno = StringUtil.concatenate(protAnno, "ext*", stopCodonPos - cdsPos.getPos() / 3);
+				int shift = stopCodonPos - cdsPos.getPos() / 3;
+				proteinChange = ProteinExtension.build(true, wtAA, cdsPos.getPos() / 3, varAA, shift);
 			}
 		}
 		// Check for being a splice site variant. The splice donor, acceptor, and region intervals are disjoint.
@@ -142,15 +158,16 @@ public final class SNVAnnotationBuilder extends AnnotationBuilder {
 			varTypes.addAll(ImmutableList.of(VariantEffect.SPLICE_REGION_VARIANT));
 
 		// Build the resulting Annotation.
-		return new Annotation(transcript, change, varTypes, locAnno, ncHGVS(), protAnno);
+		return new Annotation(transcript, change, varTypes, locAnno, getGenomicNTChange(), getCDSNTChange(),
+				proteinChange);
 	}
 
 	@Override
-	protected String ncHGVS() {
-		if (hgvsSNVOverride == null)
-			return StringUtil.concatenate(dnaAnno, change.getRef(), ">", change.getAlt());
+	protected NucleotideChange getCDSNTChange() {
+		if (ntSubstitutionOverride != null)
+			return ntSubstitutionOverride;
 		else
-			return StringUtil.concatenate(dnaAnno, hgvsSNVOverride);
+			return new NucleotideSubstitution(false, ntChangeRange.getFirstPos(), change.getRef(), change.getAlt());
 	}
 
 	/**

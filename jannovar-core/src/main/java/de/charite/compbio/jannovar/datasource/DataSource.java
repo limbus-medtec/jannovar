@@ -8,13 +8,16 @@ import org.ini4j.Profile.Section;
 
 import com.google.common.collect.ImmutableList;
 
+import de.charite.compbio.jannovar.data.JannovarData;
+import de.charite.compbio.jannovar.hgnc.HGNCParser;
+
 /**
  * Base class for all data sources.
  *
  * Data sources combine the information of (1) a name, (2) a list of URLs with files to download, and (3) obtaining a
  * factory for constructing a {@link JannovarData} object from this information.
  *
- * @author Manuel Holtgrewe <manuel.holtgrewe@charite.de>
+ * @author <a href="mailto:manuel.holtgrewe@charite.de">Manuel Holtgrewe</a>
  */
 public abstract class DataSource {
 
@@ -30,6 +33,7 @@ public abstract class DataSource {
 	}
 
 	/**
+	 * @param key The key to get the file name for.
 	 * @return name of file with the given key in the data source, e.g. "knownGene.txt.gz" for
 	 *         "knownGene=http://.../knownGene.txt.gz".
 	 * @throws InvalidDataSourceException
@@ -79,6 +83,8 @@ public abstract class DataSource {
 		ImmutableList.Builder<String> builder = new ImmutableList.Builder<String>();
 		for (String key : getURLKeys())
 			builder.add(iniSection.fetch(key));
+		// Always download hgnc_complete_set.txt
+		builder.add(HGNCParser.DOWNLOAD_URL);
 		return builder.build();
 	}
 

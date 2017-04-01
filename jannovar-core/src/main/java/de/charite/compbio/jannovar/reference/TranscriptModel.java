@@ -1,15 +1,18 @@
 package de.charite.compbio.jannovar.reference;
 
 import java.io.Serializable;
+import java.util.Map;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 
 import de.charite.compbio.jannovar.Immutable;
 
 /**
  * The information representing a transcript model.
  *
- * @author Manuel Holtgrewe <manuel.holtgrewe@charite.de>
+ * @author <a href="mailto:manuel.holtgrewe@charite.de">Manuel Holtgrewe</a>
  */
 @Immutable
 public final class TranscriptModel implements Serializable, Comparable<TranscriptModel> {
@@ -32,7 +35,7 @@ public final class TranscriptModel implements Serializable, Comparable<Transcrip
 	/**
 	 * Genomic interval with CDS begin/end.
 	 *
-	 * @note Note that in Jannovar, the CDS region includes the start and stop codon.
+	 * <b>Note</b> that in Jannovar, the CDS region includes the start and stop codon.
 	 */
 	private final GenomeInterval cdsRegion;
 
@@ -51,10 +54,17 @@ public final class TranscriptModel implements Serializable, Comparable<Transcrip
 	private final String geneID;
 
 	/**
+	 * Alternative gene IDs, as parsed from RefSeq GFF3 file
+	 * 
+	 * See {@link #getAltGeneIDs()} for more information
+	 */
+	private final ImmutableSortedMap<String, String> altGeneIDs;
+
+	/**
 	 * The transcript support level of the this transcript (the lower the better).
 	 *
 	 * @see TranscriptSupportLevels
-	 * @see {@link http://www.ensembl.org/Help/Glossary?id=492}
+	 * @see <a href="http://www.ensembl.org/Help/Glossary?id=492">http://www.ensembl.org/Help/Glossary?id=492</a>
 	 */
 	private final int transcriptSupportLevel;
 
@@ -66,6 +76,16 @@ public final class TranscriptModel implements Serializable, Comparable<Transcrip
 	 */
 	public TranscriptModel(String accession, String geneSymbol, GenomeInterval txRegion, GenomeInterval cdsRegion,
 			ImmutableList<GenomeInterval> exonRegions, String sequence, String geneID, int transcriptSupportLevel) {
+		this(accession, geneSymbol, txRegion, cdsRegion, exonRegions, sequence, geneID, transcriptSupportLevel,
+				ImmutableMap.<String, String> of());
+	}
+
+	/**
+	 * Initialize the TranscriptInfo object from the given parameters.
+	 */
+	public TranscriptModel(String accession, String geneSymbol, GenomeInterval txRegion, GenomeInterval cdsRegion,
+			ImmutableList<GenomeInterval> exonRegions, String sequence, String geneID, int transcriptSupportLevel,
+			Map<String, String> altGeneIDs) {
 		this.accession = accession;
 		this.geneSymbol = geneSymbol;
 		this.txRegion = txRegion;
@@ -74,6 +94,7 @@ public final class TranscriptModel implements Serializable, Comparable<Transcrip
 		this.sequence = sequence;
 		this.geneID = geneID;
 		this.transcriptSupportLevel = transcriptSupportLevel;
+		this.altGeneIDs = ImmutableSortedMap.copyOf(altGeneIDs);
 		checkForConsistency();
 	}
 
@@ -109,17 +130,26 @@ public final class TranscriptModel implements Serializable, Comparable<Transcrip
 
 	/**
 	 * @return The gene ID, from Ensembl (<code>"ENS[MUS]*G0+([0-9]+)"</code>), Entrez ("<code>ENTREZ([0-9]+)</code>
-	 * "), RefSeq ("<code>gene([0-9]+)</code>"). <code>null</code> for no available gene ID.
+	 *         "), RefSeq ("<code>gene([0-9]+)</code>"). <code>null</code> for no available gene ID.
 	 */
 	public String getGeneID() {
 		return geneID;
 	}
 
 	/**
+	 * Return mapping containing alternative gene IDs, as parsed from RefSeq GFF3 file
+	 * 
+	 * The alternative identifiers used are the values of {@link AltGeneIDType} converted to strings.
+	 */
+	public ImmutableSortedMap<String, String> getAltGeneIDs() {
+		return altGeneIDs;
+	}
+
+	/**
 	 * @return transcript support level of the this transcript (the lower the better).
 	 *
 	 * @see TranscriptSupportLevels
-	 * @see {@link http://www.ensembl.org/Help/Glossary?id=492}
+	 * @see <a href="http://www.ensembl.org/Help/Glossary?id=492">http://www.ensembl.org/Help/Glossary?id=492</a>
 	 */
 	public int getTranscriptSupportLevel() {
 		return transcriptSupportLevel;

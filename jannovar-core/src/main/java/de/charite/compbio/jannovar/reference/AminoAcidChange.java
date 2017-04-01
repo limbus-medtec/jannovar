@@ -6,7 +6,7 @@ import de.charite.compbio.jannovar.impl.util.StringUtil;
 /**
  * Representation of a change in amino acids.
  *
- * @author Manuel Holtgrewe <manuel.holtgrewe@charite.de>
+ * @author <a href="mailto:manuel.holtgrewe@charite.de">Manuel Holtgrewe</a>
  */
 @Immutable
 public final class AminoAcidChange {
@@ -42,8 +42,8 @@ public final class AminoAcidChange {
 	}
 
 	/**
-	 * @return 0-based position of last changed base in reference, computed from {@link #pos} and the length of
-	 *         {@link #ref}.
+	 * @return 0-based position of last changed base in reference, computed from {@link #getPos} and the length of
+	 *         {@link #getRef}.
 	 */
 	public int getLastPos() {
 		return pos + ref.length() - 1;

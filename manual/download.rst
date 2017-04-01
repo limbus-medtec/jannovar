@@ -11,7 +11,7 @@ Each database is linked to a certain release of a reference genome.
 Displaying Available Database
 -----------------------------
 
-.. note:: TODO: link to writing your own INI file
+.. note:: You can use your own datasources by editing the ini file. See datasource_ for more information.
 
 Jannovar has built-in support for the human and mouse genomes in releases ``hg18``, ``hg19``, ``hg38``, ``mm9``, and ``mm10``.
 For each release, the database can originate from the sources ``ucsc``, ``ensembl``, and ``refseq``.
@@ -20,9 +20,9 @@ Further, the database can be limited to the curated transcripts only when using 
 The genome release names and the source names are joint into database descriptors such as ``hg19/ucsc`` and ``hg38/refseq``.
 You can view the built-in database names using the ``db-list`` Jannovar command:
 
-.. code-block:: console
+.. parsed-literal::
 
-    # java -jar jannovar-cli-0.14.jar db-list
+    $ java -jar jannovar-cli-\ |version|\ .jar db-list
     [...]
         hg18/refseq_curated
         hg19/ucsc
@@ -51,8 +51,8 @@ Finally, Jannovar will build a file with the extension ``.ser`` in the directory
 
 Let us now download the RefSeq and UCSC annotations for human release *hg19*:
 
-.. code-block:: console
+.. parsed-literal::
 
-    # java -jar jannovar-cli-0.14.jar download hg19/refseq hg19/ucsc
+    $ java -jar jannovar-cli-\ |version|\ .jar download -d hg19/refseq -d hg19/ucsc
 
 

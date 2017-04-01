@@ -1,7 +1,9 @@
 package de.charite.compbio.jannovar.annotation;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 
+import de.charite.compbio.jannovar.hgvs.AminoAcidCode;
 import de.charite.compbio.jannovar.impl.util.StringUtil;
 
 // TODO(holtgrem): Test me!
@@ -9,7 +11,7 @@ import de.charite.compbio.jannovar.impl.util.StringUtil;
 /**
  * Generate annotation text (effect and HGVS description) from {@link VariantAnnotations} object.
  *
- * @author Manuel Holtgrewe <manuel.holtgrewe@charite.de>
+ * @author <a href="mailto:manuel.holtgrewe@charite.de">Manuel Holtgrewe</a>
  */
 public abstract class VariantAnnotationsTextGenerator {
 
@@ -53,7 +55,7 @@ public abstract class VariantAnnotationsTextGenerator {
 	 */
 	public String buildEffectText() {
 		StringBuilder builder = new StringBuilder();
-		for (Annotation anno : annotations.getAnnotations()) {
+		for (Annotation anno : getAnnotations()) {
 			if (builder.length() != 0)
 				builder.append(',');
 			if (altCount > 1)
@@ -66,14 +68,14 @@ public abstract class VariantAnnotationsTextGenerator {
 	/**
 	 * @return String with the effect text, comma separated if {@link #getAnnotations} returns more than one element
 	 */
-	public String buildHGVSText() {
+	public String buildHGVSText(AminoAcidCode code) {
 		StringBuilder builder = new StringBuilder();
-		for (Annotation anno : annotations.getAnnotations()) {
+		for (Annotation anno : getAnnotations()) {
 			if (builder.length() != 0)
 				builder.append(',');
 			if (altCount > 1)
 				builder.append(StringUtil.concatenate("alt", alleleID + 1, ":"));
-			builder.append(anno.getSymbolAndAnnotation());
+			builder.append(anno.getSymbolAndAnnotation(code));
 		}
 		return builder.toString();
 	}
@@ -81,6 +83,6 @@ public abstract class VariantAnnotationsTextGenerator {
 	/**
 	 * @return {@link VariantAnnotations} of annotations to generate the annotation text for
 	 */
-	protected abstract VariantAnnotations getAnnotations();
+	protected abstract ImmutableList<Annotation> getAnnotations();
 
 }

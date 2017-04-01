@@ -3,8 +3,8 @@ package de.charite.compbio.jannovar.impl.util;
 /**
  * Utility class for DNA string manipulation.
  *
- * @author Peter N Robinson <peter.robinson@charite.de>
- * @author Manuel Holtgrewe <manuel.holtgrewe@charite.de>
+ * @author <a href="mailto:Peter.Robinson@jax.org">Peter N Robinson</a>
+ * @author <a href="mailto:manuel.holtgrewe@charite.de">Manuel Holtgrewe</a>
  */
 public final class DNAUtils {
 

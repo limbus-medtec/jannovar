@@ -13,10 +13,7 @@ import de.charite.compbio.jannovar.reference.VariantDescription;
 /**
  * A list of priority-sorted {@link Annotation} objects.
  *
- * @see AllAnnotationListTextGenerator
- * @see BestAnnotationListTextGenerator
- *
- * @author Manuel Holtgrewe <manuel.holtgrewe@charite.de>
+ * @author <a href="mailto:manuel.holtgrewe@charite.de">Manuel Holtgrewe</a>
  */
 @Immutable
 public final class VariantAnnotations implements VariantDescription {
@@ -41,7 +38,7 @@ public final class VariantAnnotations implements VariantDescription {
 	 *
 	 * Note that <code>variant</code> is converted to the forward strand using {@link GenomeVariant#withStrand}.
 	 *
-	 * @param change
+	 * @param variant
 	 *            {@link GenomeVariant} that this anotation list annotates
 	 * @param entries
 	 *            {@link Collection} of {@link Annotation} objects
@@ -90,8 +87,8 @@ public final class VariantAnnotations implements VariantDescription {
 	/**
 	 * Convenience method.
 	 *
-	 * @return {@link VariantEffect} with the highest impact of all in {@link #entries} or
-	 *         {@link VariantEffect.SEQUENCE_VARIANT} if {@link #entries} is empty or has no annotated effects.
+	 * @return {@link VariantEffect} with the highest impact of all in entries or {@link VariantEffect#SEQUENCE_VARIANT}
+	 *         if entries are empty or contain no annotated effects.
 	 */
 	public VariantEffect getHighestImpactEffect() {
 		final Annotation anno = getHighestImpactAnnotation();

@@ -4,6 +4,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
 
 import org.ini4j.Ini;
 import org.ini4j.InvalidFileFormatException;
@@ -14,7 +15,7 @@ import com.google.common.collect.ImmutableList;
 /**
  * Factory class that allows the construction of {@link DataSource} objects as configured in INI files.
  *
- * @author Manuel Holtgrewe <manuel.holtgrewe@charite.de>
+ * @author <a href="mailto:manuel.holtgrewe@charite.de">Manuel Holtgrewe</a>
  */
 final public class DataSourceFactory {
 
@@ -24,14 +25,14 @@ final public class DataSourceFactory {
 	private final ImmutableList<Ini> inis;
 
 	/**
-	 * @params options for proxy configuration
+	 * @param options
+	 *            for proxy configuration
 	 * @param iniFilePaths
 	 *            path to INI file to load the data source config from
 	 * @throws InvalidDataSourceException
 	 *             on problems with the data source config file
 	 */
-	public DataSourceFactory(DatasourceOptions options, ImmutableList<String> iniFilePaths)
-			throws InvalidDataSourceException {
+	public DataSourceFactory(DatasourceOptions options, List<String> iniFilePaths) throws InvalidDataSourceException {
 		this.options = options;
 
 		ImmutableList.Builder<Ini> inisBuilder = new ImmutableList.Builder<Ini>();
@@ -47,8 +48,8 @@ final public class DataSourceFactory {
 				try {
 					is = new FileInputStream(iniFilePath);
 				} catch (FileNotFoundException e) {
-					throw new InvalidDataSourceException("Problem opening data source file " + iniFilePath + ": "
-							+ e.getMessage());
+					throw new InvalidDataSourceException(
+							"Problem opening data source file " + iniFilePath + ": " + e.getMessage());
 				}
 			}
 			Ini ini = new Ini();
@@ -99,6 +100,8 @@ final public class DataSourceFactory {
 				return new EnsemblDataSource(options, section);
 			else if (type.equals("refseq"))
 				return new RefSeqDataSource(options, section);
+			else if (type.equals("flat_bed"))
+				return new FlatBEDDataSource(options, section);
 			else
 				throw new InvalidDataSourceException("Data source config has invalid \"type\" key: " + type);
 		}

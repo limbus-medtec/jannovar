@@ -13,12 +13,16 @@ import de.charite.compbio.jannovar.annotation.AnnotationLocation;
 import de.charite.compbio.jannovar.annotation.AnnotationLocationBuilder;
 import de.charite.compbio.jannovar.annotation.AnnotationMessage;
 import de.charite.compbio.jannovar.annotation.VariantEffect;
-import de.charite.compbio.jannovar.impl.util.StringUtil;
-import de.charite.compbio.jannovar.reference.GenomeVariant;
-import de.charite.compbio.jannovar.reference.GenomeVariantNormalizer;
+import de.charite.compbio.jannovar.hgvs.nts.NucleotideRange;
+import de.charite.compbio.jannovar.hgvs.nts.change.NucleotideChange;
+import de.charite.compbio.jannovar.hgvs.protein.change.ProteinChange;
+import de.charite.compbio.jannovar.hgvs.protein.change.ProteinMiscChange;
+import de.charite.compbio.jannovar.hgvs.protein.change.ProteinMiscChangeType;
 import de.charite.compbio.jannovar.reference.GenomeInterval;
 import de.charite.compbio.jannovar.reference.GenomePosition;
-import de.charite.compbio.jannovar.reference.HGVSPositionBuilder;
+import de.charite.compbio.jannovar.reference.GenomeVariant;
+import de.charite.compbio.jannovar.reference.GenomeVariantNormalizer;
+import de.charite.compbio.jannovar.reference.NucleotidePointLocationBuilder;
 import de.charite.compbio.jannovar.reference.ProjectionException;
 import de.charite.compbio.jannovar.reference.TranscriptModel;
 import de.charite.compbio.jannovar.reference.TranscriptProjectionDecorator;
@@ -26,24 +30,21 @@ import de.charite.compbio.jannovar.reference.TranscriptSequenceChangeHelper;
 import de.charite.compbio.jannovar.reference.TranscriptSequenceDecorator;
 import de.charite.compbio.jannovar.reference.TranscriptSequenceOntologyDecorator;
 
-// TODO(holtgrem): We could collect more than one variant type.
 // TODO(holtgrem): Handle case of start gain => ext
-// TODO(holtgrem): Give intron number for intronic variants?
 
 /**
  * Base class for the annotation builder helper classes.
  *
  * The helpers subclass this class and and call the superclass constructor in their constructors. This initializes the
- * decorators for {@link #transcript} and initializes {@link #locAnno} and {@link #dnaAnno}. The annotation building
+ * decorators for {@link #transcript} and initializes protected member such as {@link #locAnno}. The annotation building
  * process is greatly simplified by this.
  *
- * The realizing classes then override {@link #build} and implement their annotation building logic there. Override
- * {@link #ncHGVS} for defining the non-coding HGVS string.
+ * The realizing classes then override {@link #build} and implement their annotation building logic there.
  *
  * At the moment, this has package visibility only since it is not clear yet whether and how client code should extend
  * the builder hierarchy.
  *
- * @author Manuel Holtgrewe <manuel.holtgrewe@charite.de>
+ * @author <a href="mailto:manuel.holtgrewe@charite.de">Manuel Holtgrewe</a>
  */
 abstract class AnnotationBuilder {
 
@@ -66,8 +67,8 @@ abstract class AnnotationBuilder {
 
 	/** location annotation string */
 	protected final AnnotationLocation locAnno;
-	/** cDNA/ncDNA annotation string */
-	protected String dnaAnno;
+	/** locus of the change, length() == 1 in case of point changes */
+	protected NucleotideRange ntChangeRange;
 	/** warnings and messages occuring during annotation process */
 	protected SortedSet<AnnotationMessage> messages = new TreeSet<AnnotationMessage>();
 
@@ -77,7 +78,7 @@ abstract class AnnotationBuilder {
 	 * Note that {@link #change} will be initialized with normalized positions (shifted to the left) if possible.
 	 *
 	 * @param transcript
-	 *            the {@link TranscriptInfo} to build the annotation for
+	 *            the {@link TranscriptModel} to build the annotation for
 	 * @param change
 	 *            the {@link GenomeVariant} to use for building the annotation
 	 * @param options
@@ -111,7 +112,7 @@ abstract class AnnotationBuilder {
 		}
 
 		this.locAnno = buildLocAnno(transcript, this.change);
-		this.dnaAnno = buildDNAAnno(transcript, this.change);
+		this.ntChangeRange = buildNTChangeRange(transcript, this.change);
 	}
 
 	/**
@@ -121,11 +122,17 @@ abstract class AnnotationBuilder {
 	 */
 	public abstract Annotation build();
 
-	// TODO(holtgrew): rename to ntHGVS
 	/**
-	 * @return HGVS string for change on the nucleotide level
+	 * @return chromosome/genome-level {@link NucleotideChange}
 	 */
-	protected abstract String ncHGVS();
+	protected NucleotideChange getGenomicNTChange() {
+		return new GenomicNucleotideChangeBuilder(change).build();
+	}
+
+	/**
+	 * @return CDS-level {@link NucleotideChange}
+	 */
+	protected abstract NucleotideChange getCDSNTChange();
 
 	/**
 	 * Build and return annotation for non-coding RNA.
@@ -175,12 +182,10 @@ abstract class AnnotationBuilder {
 			else
 				varTypes.add(VariantEffect.NON_CODING_TRANSCRIPT_INTRON_VARIANT);
 		}
-		return new Annotation(transcript, change, varTypes, locAnno, ncHGVS(), null);
+		return new Annotation(transcript, change, varTypes, locAnno, getGenomicNTChange(), getCDSNTChange(), null);
 	}
 
-	/**
-	 * @return intronic anotation, using {@link #ncHGVS} for building the DNA HGVS annotation.
-	 */
+	/** @return intronic anotation */
 	protected Annotation buildIntronicAnnotation() {
 		GenomePosition pos = change.getGenomeInterval().getGenomeBeginPos();
 
@@ -210,17 +215,16 @@ abstract class AnnotationBuilder {
 		}
 		// intronic variants have no effect on the protein but splice variants lead to "probably no protein produced"
 		// annotation, as in Mutalyzer.
-		String aaAnno = "p.=";
-		if (!Sets.intersection(
-				ImmutableSet.copyOf(varTypes),
-				ImmutableSet.of(VariantEffect.SPLICE_DONOR_VARIANT, VariantEffect.SPLICE_ACCEPTOR_VARIANT,
-						VariantEffect.SPLICE_REGION_VARIANT)).isEmpty())
-			aaAnno = "p.?";
-		return new Annotation(transcript, change, varTypes, locAnno, ncHGVS(), aaAnno);
+		ProteinChange proteinChange = ProteinMiscChange.build(true, ProteinMiscChangeType.NO_CHANGE);
+		if (!Sets.intersection(ImmutableSet.copyOf(varTypes), ImmutableSet.of(VariantEffect.SPLICE_DONOR_VARIANT,
+				VariantEffect.SPLICE_ACCEPTOR_VARIANT, VariantEffect.SPLICE_REGION_VARIANT)).isEmpty())
+			proteinChange = ProteinMiscChange.build(true, ProteinMiscChangeType.DIFFICULT_TO_PREDICT);
+		return new Annotation(transcript, change, varTypes, locAnno, getGenomicNTChange(), getCDSNTChange(),
+				proteinChange);
 	}
 
 	/**
-	 * @return 3'/5' UTR anotation, using {@link #ncHGVS} for building the DNA HGVS annotation.
+	 * @return 3'/5' UTR anotation
 	 */
 	protected Annotation buildUTRAnnotation() {
 		GenomePosition pos = change.getGenomeInterval().getGenomeBeginPos();
@@ -236,11 +240,29 @@ abstract class AnnotationBuilder {
 			else if ((so.liesInSpliceRegion(lPos) && so.liesInSpliceRegion(pos)))
 				varTypes.addAll(ImmutableList.of(VariantEffect.SPLICE_REGION_VARIANT));
 			// Check for being in 5' or 3' UTR.
-			if (so.liesInFivePrimeUTR(lPos))
-				varTypes.add(VariantEffect.FIVE_PRIME_UTR_VARIANT);
-			else
-				// so.liesInThreePrimeUTR(pos)
-				varTypes.add(VariantEffect.THREE_PRIME_UTR_VARIANT);
+			if (so.liesInFivePrimeUTR(lPos)) {
+				// Check if variant overlaps really with an UTR
+				if (so.liesInExon(lPos))
+					varTypes.add(VariantEffect.FIVE_PRIME_UTR_EXON_VARIANT);
+				else {
+					// between two UTRs. check for coding or non-coding transcript.
+					if (transcript.isCoding())
+						varTypes.add(VariantEffect.FIVE_PRIME_UTR_INTRON_VARIANT);
+					else
+						varTypes.add(VariantEffect.FIVE_PRIME_UTR_INTRON_VARIANT);
+				}
+			} else {
+				// Check if variant overlaps really with an UTR
+				if (so.liesInExon(lPos))
+					varTypes.add(VariantEffect.THREE_PRIME_UTR_EXON_VARIANT);
+				else {
+					// between two UTRs. check for coding or non-coding transcript.
+					if (transcript.isCoding())
+						varTypes.add(VariantEffect.THREE_PRIME_UTR_INTRON_VARIANT);
+					else
+						varTypes.add(VariantEffect.THREE_PRIME_UTR_INTRON_VARIANT);
+				}
+			}
 		} else {
 			GenomeInterval changeInterval = change.getGenomeInterval();
 			// Check for being a splice site variant. The splice donor, acceptor, and region intervals are disjoint.
@@ -251,18 +273,35 @@ abstract class AnnotationBuilder {
 			else if (so.overlapsWithSpliceRegion(changeInterval))
 				varTypes.addAll(ImmutableList.of(VariantEffect.SPLICE_REGION_VARIANT));
 			// Check for being in 5' or 3' UTR.
-			if (so.overlapsWithFivePrimeUTR(change.getGenomeInterval()))
-				varTypes.add(VariantEffect.FIVE_PRIME_UTR_VARIANT);
-			else
-				// so.overlapsWithThreePrimeUTR(change.getGenomeInterval())
-				varTypes.add(VariantEffect.THREE_PRIME_UTR_VARIANT);
+			if (so.overlapsWithFivePrimeUTR(changeInterval)) {
+				// Check if variant overlaps really with an UTR
+				if (so.overlapsWithExon(changeInterval))
+					varTypes.add(VariantEffect.FIVE_PRIME_UTR_EXON_VARIANT);
+				else {
+					// between two UTRs. check for coding or non-coding transcript.
+					if (transcript.isCoding())
+						varTypes.add(VariantEffect.FIVE_PRIME_UTR_INTRON_VARIANT);
+					else
+						varTypes.add(VariantEffect.FIVE_PRIME_UTR_INTRON_VARIANT);
+				}
+			} else {
+				// Check if variant overlaps really with an UTR
+				if (so.overlapsWithExon(changeInterval))
+					varTypes.add(VariantEffect.THREE_PRIME_UTR_EXON_VARIANT);
+				else {
+					// between two UTRs. check for coding or non-coding transcript.
+					if (transcript.isCoding())
+						varTypes.add(VariantEffect.THREE_PRIME_UTR_INTRON_VARIANT);
+					else
+						varTypes.add(VariantEffect.THREE_PRIME_UTR_INTRON_VARIANT);
+				}
+			}
 		}
-		return new Annotation(transcript, change, varTypes, locAnno, ncHGVS(), "p.=");
+		return new Annotation(transcript, change, varTypes, locAnno, getGenomicNTChange(), getCDSNTChange(),
+				ProteinMiscChange.build(true, ProteinMiscChangeType.NO_CHANGE));
 	}
 
-	/**
-	 * @return upstream/downstream annotation, using {@link #ncHGVS} for building the DNA HGVS annotation.
-	 */
+	/** @return upstream/downstream annotation */
 	protected Annotation buildUpOrDownstreamAnnotation() {
 		GenomePosition pos = change.getGenomeInterval().getGenomeBeginPos();
 
@@ -271,29 +310,28 @@ abstract class AnnotationBuilder {
 			GenomePosition lPos = pos.shifted(-1);
 			if (so.liesInUpstreamRegion(lPos))
 				return new Annotation(transcript, change, ImmutableList.of(VariantEffect.UPSTREAM_GENE_VARIANT), null,
-						null, null);
+						null, null, null);
 			else
 				// so.liesInDownstreamRegion(pos))
-				return new Annotation(transcript, change, ImmutableList.of(VariantEffect.DOWNSTREAM_GENE_VARIANT),
+				return new Annotation(transcript, change, ImmutableList.of(VariantEffect.DOWNSTREAM_GENE_VARIANT), null,
 						null, null, null);
 		} else {
 			// Non-empty interval, at least one reference base changed/deleted.
 			GenomeInterval changeInterval = change.getGenomeInterval();
 			if (so.overlapsWithUpstreamRegion(changeInterval))
 				return new Annotation(transcript, change, ImmutableList.of(VariantEffect.UPSTREAM_GENE_VARIANT), null,
-						null, null);
+						null, null, null);
 			else
 				// so.overlapsWithDownstreamRegion(changeInterval)
-				return new Annotation(transcript, change, ImmutableList.of(VariantEffect.DOWNSTREAM_GENE_VARIANT),
+				return new Annotation(transcript, change, ImmutableList.of(VariantEffect.DOWNSTREAM_GENE_VARIANT), null,
 						null, null, null);
 		}
 	}
 
-	/**
-	 * @return intergenic anotation, using {@link #ncHGVS} for building the DNA HGVS annotation.
-	 */
+	/** @return intergenic anotation */
 	protected Annotation buildIntergenicAnnotation() {
-		return new Annotation(transcript, change, ImmutableList.of(VariantEffect.INTERGENIC_VARIANT), null, null, null);
+		return new Annotation(transcript, change, ImmutableList.of(VariantEffect.INTERGENIC_VARIANT), null, null, null,
+				null);
 	}
 
 	/**
@@ -378,25 +416,22 @@ abstract class AnnotationBuilder {
 	 *            {@link TranscriptInfo} to build annotation for
 	 * @param change
 	 *            {@link GenomeVariant} to build annotation for
-	 * @return String with the HGVS DNA Annotation string (with coordinates for this transcript).
+	 * @return {@link NucleotideRange} describing the CDS-level position of the change (or transcript-level in the case
+	 *         of non-coding transcripts)
 	 */
-	private String buildDNAAnno(TranscriptModel transcript, GenomeVariant change) {
-		HGVSPositionBuilder posBuilder = new HGVSPositionBuilder(transcript);
+	private NucleotideRange buildNTChangeRange(TranscriptModel transcript, GenomeVariant change) {
+		NucleotidePointLocationBuilder posBuilder = new NucleotidePointLocationBuilder(transcript);
 
 		GenomePosition firstChangePos = change.getGenomeInterval().getGenomeBeginPos();
 		GenomePosition lastChangePos = change.getGenomeInterval().getGenomeEndPos().shifted(-1);
-		char prefix = transcript.isCoding() ? 'c' : 'n';
 		if (change.getGenomeInterval().length() == 0)
 			// case of zero-base change (insertion)
-			return StringUtil.concatenate(prefix, ".", posBuilder.getCDNAPosStr(lastChangePos), "_",
-					posBuilder.getCDNAPosStr(firstChangePos));
-		else if (firstChangePos.equals(lastChangePos))
-			// case of single-base change (SNV)
-			return StringUtil.concatenate(prefix, ".", posBuilder.getCDNAPosStr(firstChangePos));
+			return new NucleotideRange(posBuilder.getNucleotidePointLocation(lastChangePos),
+					posBuilder.getNucleotidePointLocation(firstChangePos));
 		else
-			// case of multi-base change (deletion, block substitution)
-			return StringUtil.concatenate(prefix, ".", posBuilder.getCDNAPosStr(firstChangePos), "_",
-					posBuilder.getCDNAPosStr(lastChangePos));
+			// case of single-base change (SNV) or multi-base change
+			return new NucleotideRange(posBuilder.getNucleotidePointLocation(firstChangePos),
+					posBuilder.getNucleotidePointLocation(lastChangePos));
 	}
 
 }

@@ -1,17 +1,15 @@
 package de.charite.compbio.jannovar.htsjdk;
 
-import htsjdk.variant.variantcontext.Allele;
-import htsjdk.variant.variantcontext.VariantContext;
-
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Joiner;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -19,7 +17,6 @@ import de.charite.compbio.jannovar.annotation.Annotation;
 import de.charite.compbio.jannovar.annotation.AnnotationMessage;
 import de.charite.compbio.jannovar.annotation.VariantAnnotations;
 import de.charite.compbio.jannovar.annotation.VariantAnnotator;
-import de.charite.compbio.jannovar.annotation.VariantEffect;
 import de.charite.compbio.jannovar.annotation.builders.AnnotationBuilderOptions;
 import de.charite.compbio.jannovar.data.Chromosome;
 import de.charite.compbio.jannovar.data.JannovarData;
@@ -29,21 +26,27 @@ import de.charite.compbio.jannovar.reference.GenomeVariant;
 import de.charite.compbio.jannovar.reference.PositionType;
 import de.charite.compbio.jannovar.reference.Strand;
 import de.charite.compbio.jannovar.reference.TranscriptModel;
+import htsjdk.variant.variantcontext.Allele;
+import htsjdk.variant.variantcontext.VariantContext;
 
 /**
  * Helper class for generating {@link VariantAnnotations} objects from {@link VariantContext}s.
  *
- * @author Manuel Holtgrewe <manuel.holtgrewe@charite.de>
+ * @author <a href="mailto:manuel.holtgrewe@charite.de">Manuel Holtgrewe</a>
  */
 public final class VariantContextAnnotator {
 
 	/** the logger object to use */
 	private static final Logger LOGGER = LoggerFactory.getLogger(VariantContextAnnotator.class);
 
+	/**
+	 * Options class for {@link VariantContextAnnotator}
+	 * 
+	 * @author <a href="mailto:manuel.holtgrewe@charite.de">Manuel Holtgrewe</a>
+	 * @author <a href="mailto:max.schubach@charite.de">Max Schubach</a>
+	 *
+	 */
 	public static class Options {
-		/** selection of info fields to write out (defaults to {@link InfoFields#VCF_ANN}) */
-		private final InfoFields infoFields;
-
 		/**
 		 * Whether or not to trim each annotation list to the first (one with highest putative impact), defaults to
 		 * <code>true</code>
@@ -56,33 +59,51 @@ public final class VariantContextAnnotator {
 		/** whether or not to perform shifting towards the 3' end of the transcript (defaults to <code>true</code>) */
 		private final boolean nt3PrimeShifting;
 
+		/**
+		 * Constructor
+		 */
 		public Options() {
-			infoFields = InfoFields.VCF_ANN;
 			oneAnnotationOnly = true;
 			escapeAnnField = true;
 			nt3PrimeShifting = true;
 		}
 
-		public Options(InfoFields infoFields, boolean oneAnnotationOnly, boolean escapeAnnField,
-				boolean nt3PrimeShifting) {
-			this.infoFields = infoFields;
+		/**
+		 * 
+		 * constructor using fields
+		 * 
+		 * @param oneAnnotationOnly
+		 *            Whether or not to trim each annotation list to the first (one with highest putative impact),
+		 *            defaults to <code>true</code>
+		 * @param escapeAnnField
+		 *            whether or not to escape values in the ANN field (defaults to <code>true</code>)
+		 * @param nt3PrimeShifting
+		 *            whether or not to perform shifting towards the 3' end of the transcript (defaults to
+		 *            <code>true</code>)
+		 */
+		public Options(boolean oneAnnotationOnly, boolean escapeAnnField, boolean nt3PrimeShifting) {
 			this.oneAnnotationOnly = oneAnnotationOnly;
 			this.escapeAnnField = escapeAnnField;
 			this.nt3PrimeShifting = nt3PrimeShifting;
 		}
 
-		public InfoFields getInfoFields() {
-			return infoFields;
-		}
-
+		/**
+		 * @return if annotation list is trimmed to first.
+		 */
 		public boolean isOneAnnotationOnly() {
 			return oneAnnotationOnly;
 		}
 
+		/**
+		 * @return Escape values in ANN field
+		 */
 		public boolean isEscapeAnnField() {
 			return escapeAnnField;
 		}
 
+		/**
+		 * @return perform shifting towards 3' end of the transcript
+		 */
 		public boolean isNt3PrimeShifting() {
 			return nt3PrimeShifting;
 		}
@@ -101,6 +122,11 @@ public final class VariantContextAnnotator {
 
 	/**
 	 * Construct annotator with default options.
+	 * 
+	 * @param refDict
+	 *            Referencedictionary
+	 * @param chromosomeMap
+	 *            the chomosomal map
 	 */
 	public VariantContextAnnotator(ReferenceDictionary refDict, ImmutableMap<Integer, Chromosome> chromosomeMap) {
 		this(refDict, chromosomeMap, new Options());
@@ -121,22 +147,34 @@ public final class VariantContextAnnotator {
 		this.refDict = refDict;
 		this.chromosomeMap = chromosomeMap;
 		this.options = options;
-		this.annotator = new VariantAnnotator(refDict, chromosomeMap, new AnnotationBuilderOptions(
-				options.nt3PrimeShifting));
+		this.annotator = new VariantAnnotator(refDict, chromosomeMap,
+				new AnnotationBuilderOptions(options.nt3PrimeShifting));
 	}
 
+	/**
+	 * @return The refDict
+	 */
 	public ReferenceDictionary getRefDict() {
 		return refDict;
 	}
 
+	/**
+	 * @return the chromosomal map
+	 */
 	public ImmutableMap<Integer, Chromosome> getChromosomeMap() {
 		return chromosomeMap;
 	}
 
+	/**
+	 * @return get the options of the VCAnnotator
+	 */
 	public Options getOptions() {
 		return options;
 	}
 
+	/**
+	 * @return get the annotator
+	 */
 	public VariantAnnotator getAnnotator() {
 		return annotator;
 	}
@@ -144,23 +182,23 @@ public final class VariantContextAnnotator {
 	/**
 	 * Build a {@link GenomeVariant} from a {@link VariantContext} object.
 	 *
-	 * In the case of exceptions, you can use {@link #buildbuildUnknownRefAnnotationLists} to build an
-	 * {@link VariantAnnotations} with an error message.
+	 * In the case of exceptions, you can use {@link #buildErrorAnnotations} to build an {@link VariantAnnotations} with
+	 * an error message.
 	 *
 	 * @param vc
 	 *            {@link VariantContext} describing the variant
 	 * @param alleleID
 	 *            numeric identifier of the allele
-	 * @return {@link GenomeVariant} corresponding to <ocde>vc</code>, guaranteed to be on {@link Strand#FWD}.
+	 * @return {@link GenomeVariant} corresponding to <code>vc</code>, guaranteed to be on {@link Strand#FWD}.
 	 * @throws InvalidCoordinatesException
 	 *             in the case that the reference in <code>vc</code> is not known in {@link #refDict}.
 	 */
-	public GenomeVariant buildGenomeChange(VariantContext vc, int alleleID) throws InvalidCoordinatesException {
+	public GenomeVariant buildGenomeVariant(VariantContext vc, int alleleID) throws InvalidCoordinatesException {
 		// Catch the case that vc.getChr() is not in ChromosomeMap.identifier2chromosom. This is the case
 		// for the "random" and "alternative locus" contigs etc.
-		Integer boxedInt = refDict.getContigNameToID().get(vc.getChr());
+		Integer boxedInt = refDict.getContigNameToID().get(vc.getContig());
 		if (boxedInt == null)
-			throw new InvalidCoordinatesException("Unknown reference " + vc.getChr(),
+			throw new InvalidCoordinatesException("Unknown reference " + vc.getContig(),
 					AnnotationMessage.ERROR_CHROMOSOME_NOT_FOUND);
 		int chr = boxedInt.intValue();
 
@@ -185,7 +223,11 @@ public final class VariantContextAnnotator {
 	public void putErrorAnnotation(VariantContext vc, Set<AnnotationMessage> messages) {
 		// TODO(holtgrewe): Do something more elegant way than 15 * "|", needs to be kept in sync with VCFAnnotationData
 		final String annotation = "|||||||||||||||" + Joiner.on('&').join(messages);
-		vc.getCommonInfo().putAttribute("ANN", annotation, true); // true allows overwriting
+
+		// If a VC builder is used before the attributes can be unmodifiable.
+		Map<String, Object> attributes = new HashMap<>(vc.getAttributes());
+		attributes.put("ANN", annotation);
+		vc.getCommonInfo().setAttributes(attributes);
 	}
 
 	/**
@@ -196,8 +238,8 @@ public final class VariantContextAnnotator {
 	 *
 	 * @param vc
 	 *            the VCF record to annotate, remains unchanged
-	 * @return {@link ImmutableList} of {@link VariantAnnotations}s, one for each alternative allele, in the order of the
-	 *         alternative alleles in <code>vc</code>
+	 * @return {@link ImmutableList} of {@link VariantAnnotations}s, one for each alternative allele, in the order of
+	 *         the alternative alleles in <code>vc</code>
 	 * @throws InvalidCoordinatesException
 	 *             in the case of problems with resolving coordinates internally, namely building the
 	 *             {@link GenomeVariant} object one one of the returned {@link VariantAnnotations}s.
@@ -207,7 +249,7 @@ public final class VariantContextAnnotator {
 
 		ImmutableList.Builder<VariantAnnotations> builder = new ImmutableList.Builder<VariantAnnotations>();
 		for (int alleleID = 0; alleleID < vc.getAlternateAlleles().size(); ++alleleID) {
-			GenomeVariant change = buildGenomeChange(vc, alleleID);
+			GenomeVariant change = buildGenomeVariant(vc, alleleID);
 
 			// Build AnnotationList object for this allele.
 			try {
@@ -225,8 +267,8 @@ public final class VariantContextAnnotator {
 	}
 
 	/**
-	 * Write annotations from <code>annos</code> to <code>vc</code>
-	 *
+	 * Write annotations from <code>annos</code> to <code>vc</code> l
+	 * 
 	 * @param vc
 	 *            {@link VariantContext} to write the annotations to (to INFO column)
 	 * @param annos
@@ -234,14 +276,6 @@ public final class VariantContextAnnotator {
 	 * @return modified <code>vc</code>
 	 */
 	public VariantContext applyAnnotations(VariantContext vc, List<VariantAnnotations> annos) {
-		if (options.infoFields == InfoFields.VCF_ANN || options.infoFields == InfoFields.BOTH)
-			applyStandardAnnotations(vc, annos);
-		if (options.infoFields == InfoFields.EFFECT_HGVS || options.infoFields == InfoFields.BOTH)
-			applyOldJannovarAnnotations(vc, annos);
-		return vc;
-	}
-
-	private void applyStandardAnnotations(VariantContext vc, List<VariantAnnotations> annos) {
 		ArrayList<String> annotations = new ArrayList<String>();
 		for (int alleleID = 0; alleleID < vc.getAlternateAlleles().size(); ++alleleID) {
 			if (!annos.get(alleleID).getAnnotations().isEmpty()) {
@@ -253,33 +287,14 @@ public final class VariantContextAnnotator {
 				}
 			}
 		}
-		vc.getCommonInfo().putAttribute("ANN", Joiner.on(',').join(annotations), true); // true allows overwriting
-	}
 
-	private void applyOldJannovarAnnotations(VariantContext vc, List<VariantAnnotations> annos) {
-		ArrayList<VariantEffect> effectList = new ArrayList<VariantEffect>();
-		ArrayList<String> hgvsList = new ArrayList<String>();
+		// If a VC builder is used before the attributes can be unmodifiable.
+		Map<String, Object> attributes = new HashMap<>(vc.getAttributes());
+		if (!annotations.isEmpty())
+			attributes.put("ANN", Joiner.on(',').join(annotations));
+		vc.getCommonInfo().setAttributes(attributes);
 
-		final int altAlleleCount = vc.getAlternateAlleles().size();
-		for (int alleleID = 0; alleleID < altAlleleCount; ++alleleID) {
-			if (!annos.get(alleleID).getAnnotations().isEmpty()) {
-				for (Annotation ann : annos.get(alleleID).getAnnotations()) {
-					final String alt = vc.getAlternateAllele(alleleID).getBaseString();
-					effectList.add(ann.getMostPathogenicVarType());
-					if (altAlleleCount == 1)
-						hgvsList.add(ann.getSymbolAndAnnotation());
-					else
-						hgvsList.add(Joiner.on("").join("alt", alt, ":", ann.getSymbolAndAnnotation()));
-
-					if (options.oneAnnotationOnly)
-						break;
-				}
-			}
-		}
-
-		FluentIterable<String> effects = FluentIterable.from(effectList).transform(VariantEffect.TO_LEGACY_NAME);
-		vc.getCommonInfo().putAttribute("EFFECT", Joiner.on(',').join(effects), true); // true allows overwriting
-		vc.getCommonInfo().putAttribute("HGVS", Joiner.on(',').join(hgvsList), true); // true allows overwriting
+		return vc;
 	}
 
 	/**
@@ -288,8 +303,8 @@ public final class VariantContextAnnotator {
 	 * @return VariantAnnotations having the message set to {@link AnnotationMessage#ERROR_PROBLEM_DURING_ANNOTATION}.
 	 */
 	public VariantAnnotations buildErrorAnnotations(GenomeVariant change) {
-		return new VariantAnnotations(change, ImmutableList.of(new Annotation(ImmutableList
-				.of(AnnotationMessage.ERROR_PROBLEM_DURING_ANNOTATION))));
+		return new VariantAnnotations(change,
+				ImmutableList.of(new Annotation(ImmutableList.of(AnnotationMessage.ERROR_PROBLEM_DURING_ANNOTATION))));
 	}
 
 }

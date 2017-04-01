@@ -5,14 +5,14 @@ import org.ini4j.Profile.Section;
 import com.google.common.collect.ImmutableList;
 
 import de.charite.compbio.jannovar.data.ReferenceDictionary;
-import de.charite.compbio.jannovar.impl.parse.EnsemblParser;
 import de.charite.compbio.jannovar.impl.parse.TranscriptParseException;
+import de.charite.compbio.jannovar.impl.parse.ensembl.EnsemblParser;
 import de.charite.compbio.jannovar.reference.TranscriptModel;
 
 /**
  * Creation of {@link JannovarData} objects from a {@link EnsemblDataSource}.
  *
- * @author Manuel Holtgrewe <manuel.holtgrewe@charite.de>
+ * @author <a href="mailto:manuel.holtgrewe@charite.de">Manuel Holtgrewe</a>
  */
 final class EnsemblJannovarDataFactory extends JannovarDataFactory {
 
@@ -34,7 +34,7 @@ final class EnsemblJannovarDataFactory extends JannovarDataFactory {
 	@Override
 	protected ImmutableList<TranscriptModel> parseTranscripts(ReferenceDictionary refDict, String targetDir)
 			throws TranscriptParseException {
-		return new EnsemblParser(refDict, targetDir, iniSection, options.doPrintProgressBars()).run();
+		return new EnsemblParser(refDict, targetDir, iniSection).run();
 	}
 
 }

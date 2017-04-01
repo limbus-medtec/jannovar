@@ -14,8 +14,8 @@ import de.charite.compbio.jannovar.Immutable;
 /**
  * Represent one pedigree from a PED file.
  *
- * @author Peter N Robinson <peter.robinson@charite.de>
- * @author Manuel Holtgrewe <manuel.holtgrewe@charite.de>
+ * @author <a href="mailto:Peter.Robinson@jax.org">Peter N Robinson</a>
+ * @author <a href="mailto:manuel.holtgrewe@charite.de">Manuel Holtgrewe</a>
  */
 @Immutable
 public final class Pedigree {
@@ -61,6 +61,11 @@ public final class Pedigree {
 	 */
 	public Pedigree(PedFileContents contents, String pedigreeName) throws PedParseException {
 		this(pedigreeName, new PedigreeExtractor(pedigreeName, contents).run());
+	}
+	
+	/** @return number of members in pedigree */
+	public int getNMembers() {
+		return members.size();
 	}
 
 	/** @return the pedigree's name */

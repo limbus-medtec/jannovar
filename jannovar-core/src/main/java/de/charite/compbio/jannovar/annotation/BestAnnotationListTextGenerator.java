@@ -1,5 +1,7 @@
 package de.charite.compbio.jannovar.annotation;
 
+import com.google.common.collect.ImmutableList;
+
 import de.charite.compbio.jannovar.Immutable;
 
 // TODO(holtgrewe): Remove
@@ -7,8 +9,8 @@ import de.charite.compbio.jannovar.Immutable;
 /**
  * Decorator for {@link VariantAnnotations} for generating variant annotation strings for the best variant
  *
- * @author Manuel Holtgrewe <manuel.holtgrewe@charite.de>
- * @author Peter N Robinson <peter.robinson@charite.de>
+ * @author <a href="mailto:manuel.holtgrewe@charite.de">Manuel Holtgrewe</a>
+ * @author <a href="mailto:Peter.Robinson@jax.org">Peter N Robinson</a>
  */
 @Deprecated
 @Immutable
@@ -19,10 +21,10 @@ public final class BestAnnotationListTextGenerator extends VariantAnnotationsTex
 	}
 
 	@Override
-	protected VariantAnnotations getAnnotations() {
+	protected ImmutableList<Annotation> getAnnotations() {
 		if (annotations.getAnnotations().isEmpty())
-			return new VariantAnnotations(annotations.getGenomeVariant(), annotations.getAnnotations().subList(0, 0));
+			return annotations.getAnnotations().subList(0, 0);
 		else
-			return new VariantAnnotations(annotations.getGenomeVariant(), annotations.getAnnotations().subList(0, 1));
+			return annotations.getAnnotations().subList(0, 1);
 	}
 }
