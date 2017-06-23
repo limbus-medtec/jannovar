@@ -43,7 +43,10 @@ public class MendelianCheckerARCompoundHet extends AbstractMendelianChecker {
 
 		this.siblings = queryDecorator.buildSiblings();
 	}
-
+    /**
+     *@param calls Genotypes for all pedigree members at all sites of the 'unit' being investigated (e.g., a gene, or a regulon).
+     *@return Genotypes for all variants that are compatible with autosomal recessive compound heterozygous inheritance.
+     */
 	@Override
 	public ImmutableList<GenotypeCalls> filterCompatibleRecords(Collection<GenotypeCalls> calls)
 			throws IncompatiblePedigreeException {
@@ -55,6 +58,9 @@ public class MendelianCheckerARCompoundHet extends AbstractMendelianChecker {
 			return filterCompatibleRecordsMultiSample(autosomalCalls);
 	}
 
+    /** In the single sample case, if we find two or more heterozygous variants, then there is compatibility with
+     * autosomal recessive compound heterozygous inheritance.
+     */
 	ImmutableList<GenotypeCalls> filterCompatibleRecordsSingleSample(Collection<GenotypeCalls> calls) {
 		ImmutableList.Builder<GenotypeCalls> builder = new ImmutableList.Builder<>();
 		for (GenotypeCalls gc : calls) {
@@ -109,6 +115,13 @@ public class MendelianCheckerARCompoundHet extends AbstractMendelianChecker {
 				}
 
 				// If mat and pat variant are heterozygous in an unaffected, check if they are on the same allele or not
+				// The variants in the Candidate are labeled paternal/maternal according to where they were found
+				// ppGT is the genotype of the father of p for the 'paternal' variant
+				// mpGT is the genotype of the mother of p for the 'paternal' variant
+				// pmGT is the genotype of the father of p for the 'maternal' variant
+				// mmGT is the genotype of the mother of p for the 'maternal' variant
+				// If an unaffected person is compound het for a pair of variants and the parents of p eachcontribute one variant, then
+				// it cannot be a cause of autosomal recessive disease since p is unaffected.
 				if (patHet && matHet) {
 					if (c.getPaternal() != null && p.getFather() != null && c.getMaternal() != null
 							&& p.getMother() != null) {
@@ -129,67 +142,112 @@ public class MendelianCheckerARCompoundHet extends AbstractMendelianChecker {
 		return true;
 	}
 
+    /** 
+     * This function looks for candidate pairs of variants in each of the affected-parent trios of the pedigree.
+     * @return A list of {@link Candidate} pairs of variants for each member of the pedigree. */
 	private ArrayList<Candidate> collectTrioCandidates(Collection<GenotypeCalls> calls) {
 		ArrayList<Candidate> result = new ArrayList<Candidate>();
 
+		// fist collect the candidates only over the affected if at least one parent is avaiable
+		boolean noParent = true;
 		for (Person p : pedigree.getMembers()) {
+			// Check if at least one parent is available
 			if (p.getDisease() == Disease.AFFECTED && (p.getFather() != null || p.getMother() != null)) {
-				List<GenotypeCalls> paternal = new ArrayList<GenotypeCalls>();
-				List<GenotypeCalls> maternal = new ArrayList<GenotypeCalls>();
-
-				// Collect candidates towards the paternal side (heterozygous or not observed in child and father, not
-				// hom_alt or het in mother)
-				for (GenotypeCalls gc : calls) {
-					final Genotype gtP = gc.getGenotypeForSample(p.getName());
-					final Genotype gtF = (p.getFather() == null) ? null
-							: gc.getGenotypeForSample(p.getFather().getName());
-					final Genotype gtM = (p.getMother() == null) ? null
-							: gc.getGenotypeForSample(p.getMother().getName());
-
-					if ((gtP.isHet() || gtP.isNotObserved()) && (gtF == null || gtF.isHet() || gtF.isNotObserved())
-							&& (gtM == null || gtM.isNotObserved() || gtM.isHomRef()))
-						paternal.add(gc);
-				}
-				// Collect candidates towards the paternal side (heterozygous or not observed in child and mother. Not
-				// hom_alt or het in father)
-				for (GenotypeCalls gc : calls) {
-					final Genotype gtP = gc.getGenotypeForSample(p.getName());
-					final Genotype gtF = (p.getFather() == null) ? null
-							: gc.getGenotypeForSample(p.getFather().getName());
-					final Genotype gtM = (p.getMother() == null) ? null
-							: gc.getGenotypeForSample(p.getMother().getName());
-
-					if ((gtP.isHet() || gtP.isNotObserved()) && (gtM == null || gtM.isHet() || gtM.isNotObserved())
-							&& (gtF == null || gtF.isNotObserved() || gtF.isHomRef()))
-						maternal.add(gc);
-
-					// Combine compatible paternal and maternal heterozygous variants
-					for (GenotypeCalls pat : paternal)
-						for (GenotypeCalls mat : maternal) {
-							if (pat == mat) // FIXME what means this NOW?
-								continue; // exclude if variants are identical
-
-							if (pat.getGenotypeForSample(p.getName()).isNotObserved()
-									&& (p.getFather() == null
-											|| pat.getGenotypeForSample(p.getFather().getName()).isNotObserved())
-									&& (p.getMother() == null
-											|| pat.getGenotypeForSample(p.getMother().getName()).isNotObserved()))
-								continue; // exclude if not observed in all from paternal
-							if (mat.getGenotypeForSample(p.getName()).isNotObserved()
-									&& (p.getFather() == null
-											|| mat.getGenotypeForSample(p.getFather().getName()).isNotObserved())
-									&& (p.getMother() == null
-											|| mat.getGenotypeForSample(p.getMother().getName()).isNotObserved()))
-								continue; // exclude if not observed in all from maternal
-							result.add(new Candidate(pat, mat));
-						}
-				}
+				collectTroCandidatesWithParents(calls, result, p);
+				noParent = false;
 			}
 		}
 
+		// If no parent was available (e.g. only siblings)
+		if (noParent) {
+			for (Person p : pedigree.getMembers()) {
+				// Check if at least one parent is available
+				if (p.getDisease() == Disease.AFFECTED) {
+					collectTroCandidatesWithoutParents(calls, result, p);
+				}
+			}
+		}
 		return result;
 	}
 
+	private void collectTroCandidatesWithParents(Collection<GenotypeCalls> calls, ArrayList<Candidate> result,
+			Person p) {
+		List<GenotypeCalls> paternal = new ArrayList<GenotypeCalls>();
+		List<GenotypeCalls> maternal = new ArrayList<GenotypeCalls>();
+
+		// Collect candidates towards the paternal side (heterozygous or not observed in child and father, not
+		// hom_alt or het in mother)
+		for (GenotypeCalls gc : calls) {
+			final Genotype gtP = gc.getGenotypeForSample(p.getName());
+			final Genotype gtF = (p.getFather() == null) ? null : gc.getGenotypeForSample(p.getFather().getName());
+			final Genotype gtM = (p.getMother() == null) ? null : gc.getGenotypeForSample(p.getMother().getName());
+
+			if ((gtP.isHet() || gtP.isNotObserved()) && (gtF == null || gtF.isHet() || gtF.isNotObserved())
+					&& (gtM == null || gtM.isNotObserved() || gtM.isHomRef()))
+				paternal.add(gc);
+		}
+		// Collect candidates towards the paternal side (heterozygous or not observed in child and mother. Not
+		// hom_alt or het in father)
+		for (GenotypeCalls gc : calls) {
+			final Genotype gtP = gc.getGenotypeForSample(p.getName());
+			final Genotype gtF = (p.getFather() == null) ? null : gc.getGenotypeForSample(p.getFather().getName());
+			final Genotype gtM = (p.getMother() == null) ? null : gc.getGenotypeForSample(p.getMother().getName());
+
+			if ((gtP.isHet() || gtP.isNotObserved()) && (gtM == null || gtM.isHet() || gtM.isNotObserved())
+					&& (gtF == null || gtF.isNotObserved() || gtF.isHomRef()))
+				maternal.add(gc);
+
+			// Combine compatible paternal and maternal heterozygous variants
+			for (GenotypeCalls pat : paternal)
+				for (GenotypeCalls mat : maternal) {
+					if (pat == mat) // FIXME what means this NOW?
+						continue; // exclude if variants are identical
+
+					if (pat.getGenotypeForSample(p.getName()).isNotObserved()
+							&& (p.getFather() == null
+									|| pat.getGenotypeForSample(p.getFather().getName()).isNotObserved())
+							&& (p.getMother() == null
+									|| pat.getGenotypeForSample(p.getMother().getName()).isNotObserved()))
+						continue; // exclude if not observed in all from paternal
+					if (mat.getGenotypeForSample(p.getName()).isNotObserved()
+							&& (p.getFather() == null
+									|| mat.getGenotypeForSample(p.getFather().getName()).isNotObserved())
+							&& (p.getMother() == null
+									|| mat.getGenotypeForSample(p.getMother().getName()).isNotObserved()))
+						continue; // exclude if not observed in all from maternal
+					result.add(new Candidate(pat, mat));
+				}
+		}
+	}
+
+	private void collectTroCandidatesWithoutParents(Collection<GenotypeCalls> calls, ArrayList<Candidate> result,
+			Person p) {
+		List<GenotypeCalls> paternal = new ArrayList<GenotypeCalls>();
+		List<GenotypeCalls> maternal = new ArrayList<GenotypeCalls>();
+
+		// Collect candidates and do not look at the parents
+		for (GenotypeCalls gc : calls) {
+			final Genotype gtP = gc.getGenotypeForSample(p.getName());
+			if (gtP.isHet() || gtP.isNotObserved()) {
+				paternal.add(gc);
+				maternal.add(gc);
+			}
+		}
+		// Combine compatible paternal and maternal heterozygous variants
+		for (GenotypeCalls pat : paternal)
+			for (GenotypeCalls mat : maternal) {
+				if (pat == mat) // FIXME what means this NOW?
+					continue; // exclude if variants are identical
+				else if (pat.getGenotypeForSample(p.getName()).isNotObserved()
+						&& mat.getGenotypeForSample(p.getName()).isNotObserved())
+					continue;
+
+				result.add(new Candidate(pat, mat));
+			}
+	}
+
+    /** This function takes a candidate pair of compound het variants and checks whether it is compatible with all affecteds in the pedigree.
+     */
 	private boolean isCompatibleWithTriosAroundAffected(Candidate c) {
 		for (Person p : pedigree.getMembers()) {
 			if (p.getDisease() == Disease.AFFECTED) {
@@ -206,6 +264,13 @@ public class MendelianCheckerARCompoundHet extends AbstractMendelianChecker {
 		return true;
 	}
 
+    /** For each person being tested (p is assumed to be affected by an autosomal recessive disease), we test whether the
+     * person has a HET or NOCALL genotype. Both parents (if any) of p mustbe HET or NOCALL for the mutations, whereby one
+     * of the variants must be inherited from the father of p and one from the mother of p (the variant is not filtered out
+     * if some or all of this data is missing). For each of the unaffected siblings of the affected person, it is checked 
+     * whether the sibling is compound het for the variants, inwhich case they are filtered out.
+     * @return true if this candidate pair of variants is compatible with AR compound het inheritance.
+     */
 	private boolean isCompatibleWithTriosAndMaternalPaternalInheritanceAroundAffected(Person p, GenotypeCalls paternal,
 			GenotypeCalls maternal) {
 		// None of the genotypes from the paternal or maternal call lists may be homozygous in the index

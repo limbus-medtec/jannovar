@@ -44,9 +44,9 @@ public class DBSNPAnnotationDriverReportNoOverlappingTest extends DBSNPAnnotatio
 
 		// Check header after extension
 		Assert.assertEquals(0, header.getFilterLines().size());
-		Assert.assertEquals(5, header.getInfoHeaderLines().size());
+		Assert.assertEquals(6, header.getInfoHeaderLines().size());
 		Assert.assertEquals(0, header.getFormatHeaderLines().size());
-		Assert.assertEquals(5, header.getIDHeaderLines().size());
+		Assert.assertEquals(6, header.getIDHeaderLines().size());
 		Assert.assertEquals(0, header.getOtherHeaderLines().size());
 
 		Assert.assertNotNull(header.getInfoHeaderLine("DBSNP_COMMON"));
@@ -54,6 +54,7 @@ public class DBSNPAnnotationDriverReportNoOverlappingTest extends DBSNPAnnotatio
 		Assert.assertNotNull(header.getInfoHeaderLine("DBSNP_G5"));
 		Assert.assertNotNull(header.getInfoHeaderLine("DBSNP_G5A"));
 		Assert.assertNotNull(header.getInfoHeaderLine("DBSNP_IDS"));
+		Assert.assertNotNull(header.getInfoHeaderLine("DBSNP_SAO"));
 	}
 
 	@Test
@@ -73,7 +74,7 @@ public class DBSNPAnnotationDriverReportNoOverlappingTest extends DBSNPAnnotatio
 		Collections.sort(keys);
 		Assert.assertEquals("[CAF, COMMON, G5, IDS]", keys.toString());
 
-		Assert.assertEquals("[0.02676, 0.0, 0.0]", annotated.getAttributeAsString("CAF", null));
+		Assert.assertEquals("[0.97324, 0.02676, 0.0, 0.0]", annotated.getAttributeAsString("CAF", null));
 		Assert.assertEquals("[1, 0, 0]", annotated.getAttributeAsString("G5", null));
 		Assert.assertNull(annotated.getAttributeAsString("G5A", null));
 		Assert.assertEquals("[1, 0, 0]", annotated.getAttributeAsString("COMMON", null));

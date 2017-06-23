@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>de.charite.compbio</groupId>
     <artifactId>Jannovar</artifactId>
-    <version>0.20</version>
+    <version>0.23-SNAPSHOT</version>
     <packaging>pom</packaging>
     <name>Jannovar</name>
 
@@ -15,11 +15,12 @@
 
     <modules>
         <module>jannovar-core</module>
-        <module>jannovar-inheritance-checker</module>
         <module>jannovar-htsjdk</module>
         <module>jannovar-hgvs</module>
         <module>jannovar-vardbs</module>
         <module>jannovar-cli</module>
+        <module>jannovar-filter</module>
+        <module>jannovar-stats</module>
     </modules>
 
     <!-- Inherit artifact from SonaType OSS pom.xml Following this article: 
@@ -114,10 +115,10 @@
                     <skipTests>false</skipTests>
                     <forkCount>3</forkCount>
                     <reuseForks>true</reuseForks>
-                    <argLine>${argLine} -Xms512m -Xmx1024m</argLine>
+                    <argLine>${argLine} -Xms512m -Xmx1024m -Duser.language=en -Duser.region=US</argLine>
                     <systemPropertyVariables>
                         <user.language>en</user.language>
-                        <user.region>GB</user.region>
+                        <user.region>US</user.region>
                     </systemPropertyVariables>
                 </configuration>
             </plugin>
@@ -231,6 +232,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
+                <version>3.0.2</version>
                 <configuration>
                     <archive>
                         <manifest>

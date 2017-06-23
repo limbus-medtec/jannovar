@@ -60,6 +60,7 @@ final public class DBSNPAnnotationDriver extends AbstractDBAnnotationDriver<DBSN
 		annotateInfoG5(vc, "", matchRecords, builder);
 		annotateInfoG5A(vc, "", matchRecords, builder);
 		annotateInfoIDs(vc, "", matchRecords, builder);
+		annotateInfoOrigin(vc, "", matchRecords, builder);
 
 		// Annotate with records with overlapping positions
 		if (options.isReportOverlapping() && !options.isReportOverlappingAsMatching()) {
@@ -68,6 +69,7 @@ final public class DBSNPAnnotationDriver extends AbstractDBAnnotationDriver<DBSN
 			annotateInfoG5(vc, "OVL_", overlapRecords, builder);
 			annotateInfoG5A(vc, "OVL_", overlapRecords, builder);
 			annotateInfoIDs(vc, "OVL_", overlapRecords, builder);
+			annotateInfoOrigin(vc, "OVL_", overlapRecords, builder);
 		}
 
 		return builder.make();
@@ -135,8 +137,33 @@ final public class DBSNPAnnotationDriver extends AbstractDBAnnotationDriver<DBSN
 		if (cafList.stream().allMatch(i -> (i == 0.0)))
 			return; // do not set list of zeroes
 
+		// Prepend reference frequency
+		double afRef = 1.0 - cafList.stream().mapToDouble(x -> x).sum();
+		afRef = Math.max(afRef, 0); // no negative values
+		cafList.add(0, afRef);
+
 		if (!cafList.isEmpty())
 			builder.attribute(idCAF, cafList);
+	}
+
+	private void annotateInfoOrigin(VariantContext vc, String infix,
+			HashMap<Integer, AnnotatingRecord<DBSNPRecord>> records, VariantContextBuilder builder) {
+		String idOrigin = options.getVCFIdentifierPrefix() + infix + "SAO";
+		ArrayList<String> originList = new ArrayList<>();
+		for (int i = 1; i < vc.getNAlleles(); ++i) {
+			if (records.get(i) != null) {
+				final DBSNPRecord record = records.get(i).getRecord();
+				originList.add(record.getVariantAlleleOrigin().toString());
+			} else {
+				originList.add(DBSNPVariantAlleleOrigin.UNSPECIFIED.toString());
+			}
+		}
+
+		if (originList.stream().allMatch(s -> ("UNSPECIFIED".equals(s))))
+			return; // do not set list of zeroes
+
+		if (!originList.isEmpty())
+			builder.attribute(idOrigin, originList);
 	}
 
 	private void annotateInfoCommon(VariantContext vc, String infix,
@@ -182,6 +209,9 @@ final public class DBSNPAnnotationDriver extends AbstractDBAnnotationDriver<DBSN
 				vals.add(Joiner.on('|').join(matchList.get(i - 1)));
 		}
 
+		if (vals.stream().allMatch(s -> ".".equals(s)))
+			return; // do not set list of "."
+
 		builder.attribute(idIDs, vals);
 	}
 
@@ -207,7 +237,7 @@ final public class DBSNPAnnotationDriver extends AbstractDBAnnotationDriver<DBSN
 	@Override
 	protected HashMap<Integer, AnnotatingRecord<DBSNPRecord>> pickAnnotatingDBRecords(
 			HashMap<Integer, ArrayList<GenotypeMatch>> annotatingRecords,
-			HashMap<GenotypeMatch, AnnotatingRecord<DBSNPRecord>> matchToRecord) {
+			HashMap<GenotypeMatch, AnnotatingRecord<DBSNPRecord>> matchToRecord, boolean isMatch) {
 		// Pick best annotation for each alternative allele
 		HashMap<Integer, AnnotatingRecord<DBSNPRecord>> annotatingDBSNPRecord = new HashMap<>();
 		for (Entry<Integer, ArrayList<GenotypeMatch>> entry : annotatingRecords.entrySet()) {
@@ -220,8 +250,11 @@ final public class DBSNPAnnotationDriver extends AbstractDBAnnotationDriver<DBSN
 					final DBSNPRecord update = matchToRecord.get(m).getRecord();
 					if (update.getAlleleFrequenciesG1K().size() <= alleleNo)
 						continue; // no number to update
-					else if (current.getAlleleFrequenciesG1K().size() <= alleleNo || current.getAlleleFrequenciesG1K()
-							.get(alleleNo) < update.getAlleleFrequenciesG1K().get(alleleNo))
+					if ((isMatch && (current.getAlleleFrequenciesG1K().size() <= alleleNo
+							|| current.getAlleleFrequenciesG1K().get(alleleNo - 1) < update.getAlleleFrequenciesG1K()
+									.get(alleleNo - 1)))
+							|| (!isMatch
+									&& current.highestAlleleFreqG1KOverall() < update.highestAlleleFreqG1KOverall()))
 						annotatingDBSNPRecord.put(alleleNo, matchToRecord.get(m));
 				}
 			}

@@ -24,11 +24,11 @@ public class ExacAnnotationDriverBaseTest {
 	
 		// Setup dbSNP VCF file
 		File tmpDir = Files.createTempDir();
+
 		dbExacVCFPath = tmpDir + "/exac.vcf.gz";
 		ResourceUtils.copyResourceToFile("/ExAC.r0.3.sites.vep.head.vcf.gz", new File(dbExacVCFPath));
 		String tbiPath = tmpDir + "/exac.vcf.gz.tbi";
 		ResourceUtils.copyResourceToFile("/ExAC.r0.3.sites.vep.head.vcf.gz.tbi", new File(tbiPath));
-	
 		// Setup reference FASTA file
 		fastaPath = tmpDir + "/chr1.fasta";
 		ResourceUtils.copyResourceToFile("/chr1.fasta", new File(fastaPath));

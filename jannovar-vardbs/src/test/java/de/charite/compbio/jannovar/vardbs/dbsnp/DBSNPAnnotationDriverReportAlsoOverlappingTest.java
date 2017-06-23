@@ -44,9 +44,9 @@ public class DBSNPAnnotationDriverReportAlsoOverlappingTest extends DBSNPAnnotat
 
 		// Check header after extension
 		Assert.assertEquals(0, header.getFilterLines().size());
-		Assert.assertEquals(10, header.getInfoHeaderLines().size());
+		Assert.assertEquals(12, header.getInfoHeaderLines().size());
 		Assert.assertEquals(0, header.getFormatHeaderLines().size());
-		Assert.assertEquals(10, header.getIDHeaderLines().size());
+		Assert.assertEquals(12, header.getIDHeaderLines().size());
 		Assert.assertEquals(0, header.getOtherHeaderLines().size());
 
 		Assert.assertNotNull(header.getInfoHeaderLine("DBSNP_COMMON"));
@@ -54,11 +54,13 @@ public class DBSNPAnnotationDriverReportAlsoOverlappingTest extends DBSNPAnnotat
 		Assert.assertNotNull(header.getInfoHeaderLine("DBSNP_G5"));
 		Assert.assertNotNull(header.getInfoHeaderLine("DBSNP_G5A"));
 		Assert.assertNotNull(header.getInfoHeaderLine("DBSNP_IDS"));
+		Assert.assertNotNull(header.getInfoHeaderLine("DBSNP_SAO"));
 		Assert.assertNotNull(header.getInfoHeaderLine("DBSNP_OVL_COMMON"));
 		Assert.assertNotNull(header.getInfoHeaderLine("DBSNP_OVL_CAF"));
 		Assert.assertNotNull(header.getInfoHeaderLine("DBSNP_OVL_G5"));
 		Assert.assertNotNull(header.getInfoHeaderLine("DBSNP_OVL_G5A"));
 		Assert.assertNotNull(header.getInfoHeaderLine("DBSNP_OVL_IDS"));
+		Assert.assertNotNull(header.getInfoHeaderLine("DBSNP_OVL_SAO"));
 	}
 
 	@Test
@@ -79,13 +81,13 @@ public class DBSNPAnnotationDriverReportAlsoOverlappingTest extends DBSNPAnnotat
 		Assert.assertEquals("[CAF, COMMON, G5, IDS, OVL_CAF, OVL_COMMON, OVL_G5, OVL_IDS]",
 				keys.toString());
 
-		Assert.assertEquals("[0.02676, 0.0, 0.0]", annotated.getAttributeAsString("CAF", null));
+		Assert.assertEquals("[0.97324, 0.02676, 0.0, 0.0]", annotated.getAttributeAsString("CAF", null));
 		Assert.assertEquals("[1, 0, 0]", annotated.getAttributeAsString("G5", null));
 		Assert.assertNull(annotated.getAttributeAsString("G5A", null));
 		Assert.assertEquals("[1, 0, 0]", annotated.getAttributeAsString("COMMON", null));
 		Assert.assertEquals("[rs540538026, ., .]", annotated.getAttributeAsString("IDS", null));
 
-		Assert.assertEquals("[0.02676, 0.02676, 0.02676]", annotated.getAttributeAsString("OVL_CAF", null));
+		Assert.assertEquals("[0.91972, 0.02676, 0.02676, 0.02676]", annotated.getAttributeAsString("OVL_CAF", null));
 		Assert.assertEquals("[1, 1, 1]", annotated.getAttributeAsString("OVL_G5", null));
 		Assert.assertNull(annotated.getAttributeAsString("OVL_G5A", null));
 		Assert.assertEquals("[1, 1, 1]", annotated.getAttributeAsString("OVL_COMMON", null));

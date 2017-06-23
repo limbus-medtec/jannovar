@@ -9,8 +9,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 
-// TODO: add more values, e.g. homozygous/heterozygous/hemizygous counts?
-
 /**
  * Represents on entry in the ExAC VCF database file
  * 
@@ -121,11 +119,10 @@ public class ExacRecord {
 	public ImmutableMap<ExacPopulation, ImmutableList<Integer>> getAlleleCounts() {
 		return alleleCounts;
 	}
-	
+
 	public ImmutableMap<ExacPopulation, ImmutableList<Integer>> getAlleleHemiCounts() {
 		return alleleHemiCounts;
 	}
-	
 
 	public ImmutableMap<ExacPopulation, Integer> getChromCounts() {
 		return chromCounts;
@@ -175,10 +172,11 @@ public class ExacRecord {
 		double bestFreq = -1;
 		ExacPopulation bestPop = ExacPopulation.ALL;
 		for (ExacPopulation pop : ExacPopulation.values()) {
-			if (alleleFrequencies.get(pop).get(alleleNo) > bestFreq) {
-				bestFreq = alleleFrequencies.get(pop).get(alleleNo);
-				bestPop = pop;
-			}
+			if (alleleNo < alleleFrequencies.get(pop).size())
+				if (alleleFrequencies.get(pop).get(alleleNo) > bestFreq) {
+					bestFreq = alleleFrequencies.get(pop).get(alleleNo);
+					bestPop = pop;
+				}
 		}
 		return bestPop;
 	}
@@ -186,6 +184,14 @@ public class ExacRecord {
 	/** @return Highest frequency of the given allele, 0 is first alternative allele */
 	public double highestAlleleFreq(int alleleNo) {
 		return getAlleleFrequencies(popWithHighestAlleleFreq(alleleNo)).get(alleleNo);
+	}
+
+	public double highestAlleleFreqOverall() {
+		double result = 0;
+		for (int alleleNo = 0; alleleNo < alleleFrequencies.size(); ++alleleNo)
+			if (alleleNo < getAlleleFrequencies(popWithHighestAlleleFreq(alleleNo)).size())
+				result = Math.max(result, getAlleleFrequencies(popWithHighestAlleleFreq(alleleNo)).get(alleleNo));
+		return result;
 	}
 
 	@Override
