@@ -10,7 +10,7 @@ import org.junit.Test;
  */
 public class TranscriptSequenceDecoratorTest {
 
-	private static final String[] CODONS = { "CAG", "ATC", "AGA", "GCT", "TGA" };
+	private static final String[] CODONS = { "ATG", "ATC", "AGA", "GCT", "TGA" };
 
 	private static final int START_LAST_CODON = 12;
 
