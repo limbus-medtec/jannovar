@@ -1,12 +1,16 @@
 package de.charite.compbio.jannovar.cmd.annotate_vcf;
 
-import java.util.function.BiFunction;
-
 import de.charite.compbio.jannovar.UncheckedJannovarException;
 import de.charite.compbio.jannovar.cmd.CommandLineParsingException;
 import de.charite.compbio.jannovar.cmd.JannovarAnnotationOptions;
 import de.charite.compbio.jannovar.cmd.JannovarBaseOptions;
+import de.charite.compbio.jannovar.filter.facade.PedigreeFilterOptions;
 import de.charite.compbio.jannovar.filter.facade.ThresholdFilterOptions;
+import de.charite.compbio.jannovar.vardbs.generic_tsv.GenericTSVAnnotationOptions;
+import de.charite.compbio.jannovar.vardbs.generic_vcf.GenericVCFAnnotationOptions;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.BiFunction;
 import net.sourceforge.argparse4j.impl.Arguments;
 import net.sourceforge.argparse4j.inf.ArgumentGroup;
 import net.sourceforge.argparse4j.inf.ArgumentParser;
@@ -92,6 +96,11 @@ public class JannovarAnnotateVCFOptions extends JannovarAnnotationOptions {
 	/** Whether or not to use threshold-based filters */
 	public boolean useThresholdFilters;
 
+	/**
+	 * Whether or not to use the advanced pedigree filters (mainly useful for de novo variants)
+	 */
+	public boolean useAdvancedPedigreeFilters;
+
 	/** Threshold filter: minimal coverage at a site for heterozygous calls */
 	private int threshFiltMinGtCovHet;
 
@@ -104,22 +113,34 @@ public class JannovarAnnotateVCFOptions extends JannovarAnnotationOptions {
 	/** Threshold filter: minimal genotype for calls */
 	private int threshFiltMinGtGq;
 
-	/** Threshold filter: minimal alternative allele fraction for heterozygous calls */
+	/**
+	 * Threshold filter: minimal alternative allele fraction for heterozygous calls
+	 */
 	private double threshFiltMinGtAafHet;
 
-	/** Threshold filter: maximal alternative allele fraction for heterozygous calls */
+	/**
+	 * Threshold filter: maximal alternative allele fraction for heterozygous calls
+	 */
 	private double threshFiltMaxGtAafHet;
 
-	/** Threshold filter: minimal alternative allele fraction for homozygous alternative calls */
+	/**
+	 * Threshold filter: minimal alternative allele fraction for homozygous alternative calls
+	 */
 	private double threshFiltMinGtAafHomAlt;
 
-	/** Threshold filter: maximal alternative allele fraction for homozygous ref calls */
+	/**
+	 * Threshold filter: maximal alternative allele fraction for homozygous ref calls
+	 */
 	private double threshFiltMaxGtAafHomRef;
 
-	/** Threshold filter: maximal allele frequency for autosomal dominant inheritance mode */
+	/**
+	 * Threshold filter: maximal allele frequency for autosomal dominant inheritance mode
+	 */
 	private double threshFiltMaxAlleleFrequencyAd;
 
-	/** Threshold filter: maximal allele frequency for autosomal recessive inheritance mode */
+	/**
+	 * Threshold filter: maximal allele frequency for autosomal recessive inheritance mode
+	 */
 	private double threshFiltMaxAlleleFrequencyAr;
 
 	/** Enable off target filter */
@@ -138,11 +159,40 @@ public class JannovarAnnotateVCFOptions extends JannovarAnnotationOptions {
 	 */
 	private boolean inheritanceAnnoUseFilters;
 
+	/** Whether or not to enable the "parent GT is filtered" GT filter, default is true. */
+	private boolean useParentGtIsFiltered;
+
+	/** Maximal support of alternative allele in parent for de novo variant. */
+	private Integer threshDeNovoParentAd2;
+
+	/** Configuration for annotation with BED files. */
+	private List<BedAnnotationOptions> bedAnnotationOptions = new ArrayList<>();
+
+	/** Column of contig name in dbNSFP. */
+	private int dbNsfpColContig;
+
+	/** Column of contig name in dbNSFP. */
+	private int dbNsfpColPosition;
+
+	/** Prefix for dbNSFP annotations. */
+	private String prefixDbNsfp;
+
+	/** Configuration for annotation with dbNSFP. */
+	private String pathDbNsfp;
+
+	/** Fields to annotate with from dbNSFP. */
+	private List<String> columnsDbNsfp = new ArrayList<>();
+
+	/** Configuration for annotation with generic TSV files. */
+	private List<GenericTSVAnnotationOptions> tsvAnnotationOptions = new ArrayList<>();
+
+	/** Configuration for annotation with VCF files. */
+	private List<GenericVCFAnnotationOptions> vcfAnnotationOptions = new ArrayList<>();
+
 	/**
 	 * Setup {@link ArgumentParser}
 	 * 
-	 * @param subParsers
-	 *            {@link Subparsers} to setup
+	 * @param subParsers {@link Subparsers} to setup
 	 */
 	public static void setupParser(Subparsers subParsers) {
 		BiFunction<String[], Namespace, AnnotateVCFCommand> handler = (argv, args) -> {
@@ -212,6 +262,42 @@ public class JannovarAnnotateVCFOptions extends JannovarAnnotationOptions {
 				.help("Use filters in inheritance mode annotation").setDefault(false)
 				.action(Arguments.storeTrue());
 
+		ArgumentGroup dbNsfpAnnotationGroup =
+				subParser.addArgumentGroup("Annotation with dbNSFP (experimental; optional)");
+		dbNsfpAnnotationGroup.addArgument("--dbnsfp-tsv").help("Patht to dbNSFP TSV file")
+				.required(false);
+		dbNsfpAnnotationGroup.addArgument("--dbnsfp-col-contig").type(Integer.class)
+				.help("Column index of contig in dbNSFP").setDefault(1);
+		dbNsfpAnnotationGroup.addArgument("--dbnsfp-col-position").type(Integer.class)
+				.help("Column index of position in dbNSFP").setDefault(2);
+		dbNsfpAnnotationGroup.addArgument("--dbnsfp-prefix").help("Prefix for dbNSFP annotations")
+				.setDefault("DBNSFP_").required(false);
+		dbNsfpAnnotationGroup.addArgument("--dbnsfp-columns")
+				.help("Columns from dbDSFP file to use for annotation").action(Arguments.append());
+
+		ArgumentGroup bedAnnotationGroup =
+				subParser.addArgumentGroup("BED-based Annotation (experimental; optional)");
+		bedAnnotationGroup.addArgument("--bed-annotation")
+				.help("Add BED file to use for annotating. The value must be of the format "
+						+ "\"pathToBed:infoField:description[:colNo]\".")
+				.action(Arguments.append());
+
+		ArgumentGroup vcfAnnotationGroup =
+				subParser.addArgumentGroup("Generic VCF-based Annotation (experimental; optional)");
+		vcfAnnotationGroup.addArgument("--vcf-annotation")
+				.help("Add VCF file to use for annotating. The value must be of the format "
+						+ "\"pathToVfFile:prefix:field1,field2,field3\".")
+				.action(Arguments.append());
+
+		ArgumentGroup tsvAnnotationGroup =
+				subParser.addArgumentGroup("TSV-based Annotation (experimental; optional)");
+		tsvAnnotationGroup.addArgument("--tsv-annotation")
+				.help("Add TSV file to use for annotating. The value must be of the format "
+						+ "\"pathToTsvFile:oneBasedOffset:colContig:colStart:colEnd:colRef(or=0):"
+						+ "colAlt(or=0):isRefAnnotated(R=yes,A=no):colValue:fieldType:fieldName:fieldDescription:"
+						+ "accumulationStrategy\".")
+				.action(Arguments.append());
+
 		ArgumentGroup threshFilterGroup =
 				subParser.addArgumentGroup("Threshold-filter related arguments");
 		threshFilterGroup.addArgument("--use-threshold-filters").help("Use threshold-based filters")
@@ -247,6 +333,13 @@ public class JannovarAnnotateVCFOptions extends JannovarAnnotationOptions {
 		threshFilterGroup.addArgument("--var-thresh-max-allele-freq-ar")
 				.help("Maximal allele fraction for autosomal recessive inheritance mode")
 				.setDefault(threshDefaults.getMaxAlleleFrequencyAr()).type(Double.class);
+		PedigreeFilterOptions pedDefaults = PedigreeFilterOptions.buildDefaultOptions();
+		threshFilterGroup.addArgument("--use-advanced-pedigree-filters")
+				.help("Use advanced pedigree-based filters (mainly useful for de novo variants)")
+				.setDefault(false).action(Arguments.storeTrue());
+		threshFilterGroup.addArgument("--de-novo-max-parent-ad2")
+				.help("Maximal support of alternative allele in parent for de novo variants.")
+				.type(Integer.class).setDefault(pedDefaults.getDeNovoMaxParentAd2());
 
 		ArgumentGroup offTargetGroup = subParser.addArgumentGroup("Exome on/off target filters");
 		offTargetGroup.addArgument("--enable-off-target-filter")
@@ -271,6 +364,8 @@ public class JannovarAnnotateVCFOptions extends JannovarAnnotationOptions {
 		optionalGroup.addArgument("--3-letter-amino-acids")
 				.help("Enable usage of 3 letter amino acid codes").setDefault(false)
 				.action(Arguments.storeTrue());
+		optionalGroup.addArgument("--disable-parent-gt-is-filtered").setDefault(true)
+				.dest("use_parent_gt_is_filtered").action(Arguments.storeFalse());
 
 		JannovarBaseOptions.setupParser(subParser);
 	}
@@ -302,6 +397,46 @@ public class JannovarAnnotateVCFOptions extends JannovarAnnotationOptions {
 		pathCosmic = args.getString("cosmic_vcf");
 		prefixCosmic = args.getString("cosmic_prefix");
 		inheritanceAnnoUseFilters = args.getBoolean("inheritance_anno_use_filters");
+		useParentGtIsFiltered = args.getBoolean("use_parent_gt_is_filtered");
+
+		dbNsfpColContig = args.getInt("dbnsfp_col_contig");
+		dbNsfpColPosition = args.getInt("dbnsfp_col_position");
+		prefixDbNsfp = args.getString("dbnsfp_prefix");
+		pathDbNsfp = args.getString("dbnsfp_tsv");
+		if (args.getList("dbnsfp_columns") != null) {
+			for (Object o : args.getList("dbnsfp_columns")) {
+				final String s = (String) o;
+				for (String s2 : s.split(",")) {
+					if (!DbNsfpFields.DBNSFP_FIELDS.containsKey(s2)) {
+						throw new RuntimeException(
+								"Unknown field from dbNSFP or not yet supported: " + s);
+					} else {
+						columnsDbNsfp.add(s2);
+					}
+				}
+			}
+		}
+
+		if (args.getList("bed_annotation") != null) {
+			for (Object o : args.getList("bed_annotation")) {
+				final String s = (String) o;
+				bedAnnotationOptions.add(BedAnnotationOptions.parseFrom(s));
+			}
+		}
+
+		if (args.getList("tsv_annotation") != null) {
+			for (Object o : args.getList("tsv_annotation")) {
+				final String s = (String) o;
+				tsvAnnotationOptions.add(GenericTSVAnnotationOptions.parseFrom(s));
+			}
+		}
+
+		if (args.getList("vcf_annotation") != null) {
+			for (Object o : args.getList("vcf_annotation")) {
+				final String s = (String) o;
+				vcfAnnotationOptions.add(GenericVCFAnnotationOptions.parseFrom(s));
+			}
+		}
 
 		useThresholdFilters = args.getBoolean("use_threshold_filters");
 		threshFiltMinGtCovHet = args.getInt("gt_thresh_filt_min_cov_het");
@@ -314,6 +449,8 @@ public class JannovarAnnotateVCFOptions extends JannovarAnnotationOptions {
 		threshFiltMaxGtAafHomRef = args.getDouble("gt_thresh_filt_max_aaf_hom_ref");
 		threshFiltMaxAlleleFrequencyAd = args.getDouble("var_thresh_max_allele_freq_ad");
 		threshFiltMaxAlleleFrequencyAr = args.getDouble("var_thresh_max_allele_freq_ar");
+		useAdvancedPedigreeFilters = args.getBoolean("use_advanced_pedigree_filters");
+		setThreshDeNovoParentAd2(args.getInt("de_novo_max_parent_ad2"));
 
 		offTargetFilterEnabled = args.getBoolean("enable_off_target_filter");
 		offTargetFilterUtrIsOffTarget = args.getBoolean("utr_is_off_target");
@@ -321,7 +458,8 @@ public class JannovarAnnotateVCFOptions extends JannovarAnnotationOptions {
 
 		if (pathFASTARef == null && (pathVCFDBSNP != null || pathVCFExac != null
 				|| pathVCFUK10K != null || pathClinVar != null || pathCosmic != null
-				|| pathVCFGnomadExomes != null || pathVCFGnomadGenomes != null))
+				|| pathVCFGnomadExomes != null || pathVCFGnomadGenomes != null || pathDbNsfp != null
+				|| !tsvAnnotationOptions.isEmpty() || !vcfAnnotationOptions.isEmpty()))
 			throw new CommandLineParsingException(
 					"Command --ref-fasta required when using dbSNP, ExAC, UK10K, ClinVar, or COSMIC annotations.");
 	}
@@ -623,6 +761,94 @@ public class JannovarAnnotateVCFOptions extends JannovarAnnotationOptions {
 		this.inheritanceAnnoUseFilters = inheritanceAnnoUseFilters;
 	}
 
+	public boolean isUseAdvancedPedigreeFilters() {
+		return useAdvancedPedigreeFilters;
+	}
+
+	public void setUseAdvancedPedigreeFilters(boolean useAdvancedPedigreeFilters) {
+		this.useAdvancedPedigreeFilters = useAdvancedPedigreeFilters;
+	}
+
+	public List<BedAnnotationOptions> getBedAnnotationOptions() {
+		return bedAnnotationOptions;
+	}
+
+	public void setBedAnnotationOptions(List<BedAnnotationOptions> bedAnnotationOptions) {
+		this.bedAnnotationOptions = bedAnnotationOptions;
+	}
+
+	public Integer getThreshDeNovoParentAd2() {
+		return threshDeNovoParentAd2;
+	}
+
+	public void setThreshDeNovoParentAd2(Integer threshDeNovoParentAd2) {
+		this.threshDeNovoParentAd2 = threshDeNovoParentAd2;
+	}
+
+	public String getPrefixDbNsfp() {
+		return prefixDbNsfp;
+	}
+
+	public void setPrefixDbNsfp(String prefixDbNsfp) {
+		this.prefixDbNsfp = prefixDbNsfp;
+	}
+
+	public String getPathDbNsfp() {
+		return pathDbNsfp;
+	}
+
+	public void setPathDbNsfp(String pathDbNsfp) {
+		this.pathDbNsfp = pathDbNsfp;
+	}
+
+	public List<String> getColumnsDbNsfp() {
+		return columnsDbNsfp;
+	}
+
+	public void setColumnsDbNsfp(List<String> columnsDbNsfp) {
+		this.columnsDbNsfp = columnsDbNsfp;
+	}
+
+	public List<GenericTSVAnnotationOptions> getTsvAnnotationOptions() {
+		return tsvAnnotationOptions;
+	}
+
+	public void setTsvAnnotationOptions(List<GenericTSVAnnotationOptions> tsvAnnotationOptions) {
+		this.tsvAnnotationOptions = tsvAnnotationOptions;
+	}
+
+	public int getDbNsfpColContig() {
+		return dbNsfpColContig;
+	}
+
+	public void setDbNsfpColContig(int dbNsfpColContig) {
+		this.dbNsfpColContig = dbNsfpColContig;
+	}
+
+	public int getDbNsfpColPosition() {
+		return dbNsfpColPosition;
+	}
+
+	public void setDbNsfpColPosition(int dbNsfpColPosition) {
+		this.dbNsfpColPosition = dbNsfpColPosition;
+	}
+
+	public List<GenericVCFAnnotationOptions> getVcfAnnotationOptions() {
+		return vcfAnnotationOptions;
+	}
+
+	public void setVcfAnnotationOptions(List<GenericVCFAnnotationOptions> vcfAnnotationOptions) {
+		this.vcfAnnotationOptions = vcfAnnotationOptions;
+	}
+
+	public boolean isUseParentGtIsFiltered() {
+		return useParentGtIsFiltered;
+	}
+
+	public void setUseParentGtIsFiltered(boolean useParentGtIsFiltered) {
+		this.useParentGtIsFiltered = useParentGtIsFiltered;
+	}
+
 	@Override
 	public String toString() {
 		return "JannovarAnnotateVCFOptions [escapeAnnField=" + escapeAnnField + ", pathInputVCF="
@@ -636,19 +862,101 @@ public class JannovarAnnotateVCFOptions extends JannovarAnnotationOptions {
 				+ ", pathClinVar=" + pathClinVar + ", prefixClinVar=" + prefixClinVar
 				+ ", pathCosmic=" + pathCosmic + ", prefixCosmic=" + prefixCosmic + ", pathPedFile="
 				+ pathPedFile + ", annotateAsSingletonPedigree=" + annotateAsSingletonPedigree
-				+ ", useThresholdFilters=" + useThresholdFilters + ", threshFiltMinGtCovHet="
-				+ threshFiltMinGtCovHet + ", threshFiltMinGtCovHomAlt=" + threshFiltMinGtCovHomAlt
-				+ ", threshFiltMaxCov=" + threshFiltMaxCov + ", threshFiltMinGtGq="
-				+ threshFiltMinGtGq + ", threshFiltMinGtAafHet=" + threshFiltMinGtAafHet
-				+ ", threshFiltMaxGtAafHet=" + threshFiltMaxGtAafHet + ", threshFiltMinGtAafHomAlt="
-				+ threshFiltMinGtAafHomAlt + ", threshFiltMaxGtAafHomRef="
-				+ threshFiltMaxGtAafHomRef + ", threshFiltMaxAlleleFrequencyAd="
-				+ threshFiltMaxAlleleFrequencyAd + ", threshFiltMaxAlleleFrequencyAr="
-				+ threshFiltMaxAlleleFrequencyAr + ", offTargetFilterEnabled="
-				+ offTargetFilterEnabled + ", offTargetFilterUtrIsOffTarget="
-				+ offTargetFilterUtrIsOffTarget + ", offTargetFilterIntronicSpliceIsOffTarget="
+				+ ", useThresholdFilters=" + useThresholdFilters + ", useAdvancedPedigreeFilters="
+				+ useAdvancedPedigreeFilters + ", threshFiltMinGtCovHet=" + threshFiltMinGtCovHet
+				+ ", threshFiltMinGtCovHomAlt=" + threshFiltMinGtCovHomAlt + ", threshFiltMaxCov="
+				+ threshFiltMaxCov + ", threshFiltMinGtGq=" + threshFiltMinGtGq
+				+ ", threshFiltMinGtAafHet=" + threshFiltMinGtAafHet + ", threshFiltMaxGtAafHet="
+				+ threshFiltMaxGtAafHet + ", threshFiltMinGtAafHomAlt=" + threshFiltMinGtAafHomAlt
+				+ ", threshFiltMaxGtAafHomRef=" + threshFiltMaxGtAafHomRef
+				+ ", threshFiltMaxAlleleFrequencyAd=" + threshFiltMaxAlleleFrequencyAd
+				+ ", threshFiltMaxAlleleFrequencyAr=" + threshFiltMaxAlleleFrequencyAr
+				+ ", offTargetFilterEnabled=" + offTargetFilterEnabled
+				+ ", offTargetFilterUtrIsOffTarget=" + offTargetFilterUtrIsOffTarget
+				+ ", offTargetFilterIntronicSpliceIsOffTarget="
 				+ offTargetFilterIntronicSpliceIsOffTarget + ", inheritanceAnnoUseFilters="
-				+ inheritanceAnnoUseFilters + "]";
+				+ inheritanceAnnoUseFilters + ", useParentGtIsFiltered=" + useParentGtIsFiltered
+				+ ", threshDeNovoParentAd2=" + threshDeNovoParentAd2 + ", bedAnnotationOptions="
+				+ bedAnnotationOptions + ", dbNsfpColContig=" + dbNsfpColContig
+				+ ", dbNsfpColPosition=" + dbNsfpColPosition + ", prefixDbNsfp=" + prefixDbNsfp
+				+ ", pathDbNsfp=" + pathDbNsfp + ", columnsDbNsfp=" + columnsDbNsfp
+				+ ", tsvAnnotationOptions=" + tsvAnnotationOptions + ", vcfAnnotationOptions="
+				+ vcfAnnotationOptions + "]";
+	}
+
+	/**
+	 * Configuration for annotation with BED file.
+	 */
+	public static class BedAnnotationOptions {
+
+		/**
+		 * Construct new BED annotation from command line option value.
+		 * 
+		 * <p>
+		 * The value must have the format: <code>pathToBed:infoField:description[:colNo]</code>
+		 * </p>
+		 * 
+		 * @param strValue String to parse from
+		 * @return Constructed {@link BedAnnotationOptions} from the given string value.
+		 */
+		public static BedAnnotationOptions parseFrom(String strValue) {
+			String tokens[] = strValue.split(":", 4);
+			if (tokens.length < 3) {
+				throw new RuntimeException("Could not parse BED annotation from " + strValue);
+			} else if (tokens.length == 3) {
+				return new BedAnnotationOptions(tokens[0], tokens[1], tokens[2]);
+			} else {
+				return new BedAnnotationOptions(tokens[0], tokens[1], tokens[2],
+						Integer.parseInt(tokens[3]));
+			}
+		}
+
+		/** Path to BED file */
+		private final String pathBed;
+
+		/** Label to use for INFO field. */
+		private final String infoField;
+
+		/** Description to use for INFO field. */
+		private final String description;
+
+		/** 0-based column to write into VCF file, if any, <code>-1</code> for none */
+		private final int colNo;
+
+		public BedAnnotationOptions(String pathBed, String infoField, String description) {
+			this(pathBed, infoField, description, -1);
+		}
+
+		public BedAnnotationOptions(String pathBed, String infoField, String description,
+				int colNo) {
+			this.pathBed = pathBed;
+			this.infoField = infoField;
+			this.description = description;
+			this.colNo = colNo;
+		}
+
+		public String getPathBed() {
+			return pathBed;
+		}
+
+		public int getColNo() {
+			return colNo;
+		}
+
+		public String getInfoField() {
+			return infoField;
+		}
+
+		public String getDescription() {
+			return description;
+		}
+
+		@Override
+		public String toString() {
+			return "BedAnnotationOptions [pathBed=" + pathBed + ", colNo=" + colNo + ", infoField="
+					+ infoField + ", description=" + description + "]";
+		}
+
 	}
 
 }
