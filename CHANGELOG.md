@@ -2,9 +2,17 @@
 
 ## develop (unreleased)
 
+### jannovar-cli
+
+* Fixing annotation with Polyphen prediction (data type)
+
 ### overall
 
 * Changing HTSJDK version to 2.11.0
+
+### jannovar-core
+
+*  Fixing mendelian "bug" #393 (has no affect because check was not necessary)
 
 ### jannovar-vardbs
 
