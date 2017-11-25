@@ -1,7 +1,3 @@
-/*
- * (c) Copyright 2017, Limbus GmbH
- * All rights reserved. 
- */
 package de.charite.compbio.jannovar.impl.parse.refseq;
 
 import com.google.common.base.Splitter;
