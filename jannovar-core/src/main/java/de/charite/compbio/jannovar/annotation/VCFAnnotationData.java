@@ -3,60 +3,93 @@ package de.charite.compbio.jannovar.annotation;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
-
 import de.charite.compbio.jannovar.annotation.AnnotationLocation.RankType;
+import de.charite.compbio.jannovar.hgvs.AminoAcidCode;
 import de.charite.compbio.jannovar.hgvs.nts.change.NucleotideChange;
 import de.charite.compbio.jannovar.hgvs.protein.change.ProteinChange;
-import de.charite.compbio.jannovar.reference.GenomeVariant;
-import de.charite.compbio.jannovar.reference.ProjectionException;
-import de.charite.compbio.jannovar.reference.TranscriptModel;
-import de.charite.compbio.jannovar.reference.TranscriptPosition;
-import de.charite.compbio.jannovar.reference.TranscriptProjectionDecorator;
+import de.charite.compbio.jannovar.reference.*;
 
 /**
  * Class for collecting the data for a VCF annotation string.
- *
+ * <p>
  * Simplifies building of <code>Object</code> arrays that can then be joined using {@link Joiner}.
  */
 class VCFAnnotationData {
 
-	/** predicted effects */
-	public ImmutableSortedSet<VariantEffect> effects = ImmutableSortedSet.<VariantEffect> of();
-	/** predicted impact */
+	/**
+	 * predicted effects
+	 */
+	public ImmutableSet<VariantEffect> effects = ImmutableSortedSet.<VariantEffect>of();
+	/**
+	 * predicted impact
+	 */
 	public PutativeImpact impact = null;
-	/** symbol of affected gene */
+	/**
+	 * symbol of affected gene
+	 */
 	public String geneSymbol = null;
-	/** ID of affected gene */
+	/**
+	 * ID of affected gene
+	 */
 	public String geneID = null;
-	/** type of the feature (<code>null</code> or <code>"transcript"</code>). */
+	/**
+	 * type of the feature (<code>null</code> or <code>"transcript"</code>).
+	 */
 	public String featureType = null;
-	/** ID of the feature/transcript */
+	/**
+	 * ID of the feature/transcript
+	 */
 	public String featureID = null;
-	/** bio type of the feature, one of "Coding" and "Noncoding". */
+	/**
+	 * bio type of the feature, one of "Coding" and "Noncoding".
+	 */
 	public String featureBioType = null;
-	/** exon/intron rank */
+	/**
+	 * exon/intron rank
+	 */
 	public int rank = -1;
-	/** total number of exons/introns */
+	/**
+	 * total number of exons/introns
+	 */
 	public int totalRank = -1;
-	/** whether or not the transcript is coding */
+	/**
+	 * whether or not the transcript is coding
+	 */
 	public boolean isCoding = false;
-	/** CDS-level {@link NucleotideChange} */
+	/**
+	 * CDS-level {@link NucleotideChange}
+	 */
 	public NucleotideChange cdsNTChange = null;
-	/** predicted {@link ProteinChange} */
+	/**
+	 * predicted {@link ProteinChange}
+	 */
 	public ProteinChange proteinChange = null;
-	/** transcript position, zero based */
+	/**
+	 * transcript position, zero based
+	 */
 	public int txPos = -1;
-	/** transcript length */
+	/**
+	 * transcript length
+	 */
 	public int txLength = -1;
-	/** CDS position */
+	/**
+	 * CDS position
+	 */
 	public int cdsPos = -1;
-	/** CDS length */
+	/**
+	 * CDS length
+	 */
 	public int cdsLength = -1;
-	/** distance */
+	/**
+	 * distance
+	 */
 	public int distance = -1;
-	/** additional messages for the annotation */
-	public ImmutableSortedSet<AnnotationMessage> messages = ImmutableSortedSet.<AnnotationMessage> of();
+	/**
+	 * additional messages for the annotation
+	 */
+	public ImmutableSet<AnnotationMessage> messages = ImmutableSortedSet.<AnnotationMessage>of();
 
 	public void setAnnoLoc(AnnotationLocation annoLoc) {
 		if (annoLoc == null)
@@ -95,33 +128,33 @@ class VCFAnnotationData {
 		featureBioType = tm.isCoding() ? "Coding" : "Noncoding";
 
 		if (effects.contains(VariantEffect.INTERGENIC_VARIANT) || effects.contains(VariantEffect.UPSTREAM_GENE_VARIANT)
-				|| effects.contains(VariantEffect.DOWNSTREAM_GENE_VARIANT)) {
+			|| effects.contains(VariantEffect.DOWNSTREAM_GENE_VARIANT)) {
 			if (change.getGenomeInterval().isLeftOf(tm.getTXRegion().getGenomeBeginPos()))
 				this.distance = tm.getTXRegion().getGenomeBeginPos()
-						.differenceTo(change.getGenomeInterval().getGenomeEndPos());
+					.differenceTo(change.getGenomeInterval().getGenomeEndPos());
 			else
 				this.distance = change.getGenomeInterval().getGenomeBeginPos()
-						.differenceTo(tm.getTXRegion().getGenomeEndPos());
+					.differenceTo(tm.getTXRegion().getGenomeEndPos());
 		}
 	}
 
 	/**
-	 * @param allele
-	 *            String with the allele value to prepend to the returned array
+	 * @param allele String with the allele value to prepend to the returned array
+	 * @param code   Three ore one letter amino acid code
 	 * @return array of objects to be converted to string and joined, the alternative allele is given by
 	 */
-	public Object[] toArray(String allele) {
+	public Object[] toArray(String allele, AminoAcidCode code) {
 		final Joiner joiner = Joiner.on('&').useForNull("");
 		final String effectsString = joiner.join(FluentIterable.from(effects).transform(VariantEffect.TO_SO_TERM));
-		return new Object[] { allele, effectsString, impact, geneSymbol, geneID, featureType, featureID,
-				featureBioType, getRankString(),
-				(cdsNTChange == null) ? cdsNTChange : ((isCoding ? "c." : "n.") + cdsNTChange.toHGVSString()),
-				(proteinChange == null) ? proteinChange : ("p." + proteinChange.toHGVSString()), getTXPosString(),
-				getCDSPosString(), getAminoAcidPosString(), getDistanceString(), joiner.join(messages) };
+		return new Object[]{allele, effectsString, impact, geneSymbol, geneID, featureType, featureID,
+			featureBioType, getRankString(),
+			(cdsNTChange == null) ? cdsNTChange : ((isCoding ? "c." : "n.") + cdsNTChange.toHGVSString()),
+			(proteinChange == null) ? proteinChange : ("p." + proteinChange.toHGVSString(code)), getTXPosString(),
+			getCDSPosString(), getAminoAcidPosString(), getDistanceString(), joiner.join(messages)};
 	}
 
-	public String toUnescapedString(String allele) {
-		return Joiner.on('|').useForNull("").join(toArray(allele));
+	public String toUnescapedString(String allele, AminoAcidCode code) {
+		return Joiner.on('|').useForNull("").join(toArray(allele, code));
 	}
 
 	private String escape(String str) {
@@ -138,12 +171,12 @@ class VCFAnnotationData {
 	}
 
 	/**
-	 * @param allele
-	 *            alternative allele value to prepend
+	 * @param allele alternative allele value to prepend
+	 * @param code   Three ore one letter amino acid code
 	 * @return String for putting into the "ANN" field of the VCF file
 	 */
-	public String toString(String allele) {
-		return escape(toUnescapedString(allele));
+	public String toString(String allele, AminoAcidCode code) {
+		return escape(toUnescapedString(allele, code));
 	}
 
 	private String getRankString() {
@@ -161,7 +194,7 @@ class VCFAnnotationData {
 	private String getCDSPosString() {
 		if (cdsPos == -1)
 			return null;
-		if (!featureBioType.equals("Coding"))
+		if (!"Coding".equals(featureBioType))
 			return null;
 		return Joiner.on('/').join(cdsPos + 1, cdsLength);
 	}
@@ -169,7 +202,7 @@ class VCFAnnotationData {
 	private String getAminoAcidPosString() {
 		if (cdsPos == -1)
 			return null;
-		if (!featureBioType.equals("Coding"))
+		if (!"Coding".equals(featureBioType))
 			return null;
 		return Joiner.on('/').join(cdsPos / 3 + 1, cdsLength / 3);
 	}

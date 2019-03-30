@@ -1,9 +1,8 @@
 package de.charite.compbio.jannovar.annotation.builders;
 
-import java.util.ArrayList;
-
 import com.google.common.collect.ImmutableList;
-
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import de.charite.compbio.jannovar.annotation.Annotation;
 import de.charite.compbio.jannovar.annotation.InvalidGenomeVariant;
 import de.charite.compbio.jannovar.annotation.VariantEffect;
@@ -11,22 +10,11 @@ import de.charite.compbio.jannovar.hgvs.nts.NucleotideSeqDescription;
 import de.charite.compbio.jannovar.hgvs.nts.change.NucleotideChange;
 import de.charite.compbio.jannovar.hgvs.nts.change.NucleotideIndel;
 import de.charite.compbio.jannovar.hgvs.protein.ProteinSeqDescription;
-import de.charite.compbio.jannovar.hgvs.protein.change.ProteinChange;
-import de.charite.compbio.jannovar.hgvs.protein.change.ProteinDeletion;
-import de.charite.compbio.jannovar.hgvs.protein.change.ProteinExtension;
-import de.charite.compbio.jannovar.hgvs.protein.change.ProteinFrameshift;
-import de.charite.compbio.jannovar.hgvs.protein.change.ProteinIndel;
-import de.charite.compbio.jannovar.hgvs.protein.change.ProteinMiscChange;
-import de.charite.compbio.jannovar.hgvs.protein.change.ProteinMiscChangeType;
-import de.charite.compbio.jannovar.hgvs.protein.change.ProteinSubstitution;
+import de.charite.compbio.jannovar.hgvs.protein.change.*;
 import de.charite.compbio.jannovar.impl.util.Translator;
-import de.charite.compbio.jannovar.reference.AminoAcidChange;
-import de.charite.compbio.jannovar.reference.AminoAcidChangeNormalizer;
-import de.charite.compbio.jannovar.reference.CDSPosition;
-import de.charite.compbio.jannovar.reference.GenomeInterval;
-import de.charite.compbio.jannovar.reference.GenomePosition;
-import de.charite.compbio.jannovar.reference.GenomeVariant;
-import de.charite.compbio.jannovar.reference.TranscriptModel;
+import de.charite.compbio.jannovar.reference.*;
+
+import java.util.EnumSet;
 
 // TODO(holtgrem): The block substitution protein annotation generation needs some love in the corner cases.
 
@@ -38,18 +26,17 @@ import de.charite.compbio.jannovar.reference.TranscriptModel;
  */
 public final class BlockSubstitutionAnnotationBuilder extends AnnotationBuilder {
 
+	private static final ImmutableSet<VariantEffect> TRANSCRIPT_ABLATION = Sets.immutableEnumSet(VariantEffect.TRANSCRIPT_ABLATION);
+	private static final ImmutableSet<VariantEffect> START_LOST = Sets.immutableEnumSet(VariantEffect.START_LOST);
+
 	/**
-	 * @param transcript
-	 *            {@link TranscriptModel} to build the annotation for
-	 * @param change
-	 *            {@link GenomeVariant} to build the annotation with
-	 * @param options
-	 *            the configuration to use for the {@link AnnotationBuilder}
-	 * @throws InvalidGenomeVariant
-	 *             if <code>change</code> did not describe a block substitution
+	 * @param transcript {@link TranscriptModel} to build the annotation for
+	 * @param change     {@link GenomeVariant} to build the annotation with
+	 * @param options    the configuration to use for the {@link AnnotationBuilder}
+	 * @throws InvalidGenomeVariant if <code>change</code> did not describe a block substitution
 	 */
 	public BlockSubstitutionAnnotationBuilder(TranscriptModel transcript, GenomeVariant change,
-			AnnotationBuilderOptions options) throws InvalidGenomeVariant {
+											  AnnotationBuilderOptions options) throws InvalidGenomeVariant {
 		super(transcript, change, options);
 
 		// Guard against invalid genome change.
@@ -85,23 +72,23 @@ public final class BlockSubstitutionAnnotationBuilder extends AnnotationBuilder 
 	@Override
 	protected NucleotideChange getCDSNTChange() {
 		return new NucleotideIndel(false, ntChangeRange, new NucleotideSeqDescription(change.getRef()),
-				new NucleotideSeqDescription(change.getAlt()));
+			new NucleotideSeqDescription(change.getAlt()));
 	}
 
 	private Annotation buildFeatureAblationAnnotation() {
-		return new Annotation(transcript, change, ImmutableList.of(VariantEffect.TRANSCRIPT_ABLATION), locAnno,
-				getGenomicNTChange(), getCDSNTChange(), null, messages);
+		return new Annotation(transcript, change, TRANSCRIPT_ABLATION, locAnno,
+			getGenomicNTChange(), getCDSNTChange(), null, messages);
 	}
 
 	private Annotation buildStartLossAnnotation() {
-		return new Annotation(transcript, change, ImmutableList.of(VariantEffect.START_LOST), locAnno,
-				getGenomicNTChange(), getCDSNTChange(), ProteinMiscChange.build(true, ProteinMiscChangeType.NO_PROTEIN),
-				messages);
+		return new Annotation(transcript, change, START_LOST, locAnno,
+			getGenomicNTChange(), getCDSNTChange(), ProteinMiscChange.build(true, ProteinMiscChangeType.NO_PROTEIN),
+			messages);
 	}
 
 	/**
 	 * Helper class for generating annotations for exonic CDS variants.
-	 *
+	 * <p>
 	 * We use this helper class to simplify the access to the parameters such as {@link #wtCDSSeq} etc.
 	 */
 	private class CDSExonicAnnotationBuilder {
@@ -129,11 +116,11 @@ public final class BlockSubstitutionAnnotationBuilder extends AnnotationBuilder 
 		// Java.
 
 		// the variant types, updated in handleFrameShiftCase() and handleNonFrameShiftCase()
-		ArrayList<VariantEffect> varTypes = new ArrayList<VariantEffect>();
+		private EnumSet<VariantEffect> varTypes = EnumSet.noneOf(VariantEffect.class);
 		// the amino acid change, updated in handleFrameShiftCase() and handleNonFrameShiftCase()
-		AminoAcidChange aaChange;
+		private AminoAcidChange aaChange;
 		// the predicted protein change, updated in handleFrameShiftCase() and handleNonFrameShiftCase()
-		ProteinChange proteinChange;
+		private ProteinChange proteinChange;
 
 		public CDSExonicAnnotationBuilder() {
 			this.changeInterval = change.getGenomeInterval();
@@ -151,20 +138,20 @@ public final class BlockSubstitutionAnnotationBuilder extends AnnotationBuilder 
 			CDSPosition refChangeLastPos = projector.projectGenomeToCDSPosition(refChangeLastGenomePos);
 			// shift if end lies in intro or was project to end position
 			if (so.liesInCDSIntron(refChangeLastGenomePos)
-					|| !transcript.getCDSRegion().contains(changeInterval.getGenomeEndPos().shifted(-1)))
+				|| !transcript.getCDSRegion().contains(changeInterval.getGenomeEndPos().shifted(-1)))
 				refChangeLastPos = refChangeLastPos.shifted(-1);
 			this.refChangeLastPos = refChangeLastPos;
 			// Get the variant change begin position as CDS coordinate, handling introns and positions outside of CDS.
 			this.varChangeBeginPos = projector.projectGenomeToCDSPosition(changeInterval.getGenomeBeginPos());
 			CDSPosition varChangeLastPos = projector.projectGenomeToCDSPosition(
-					changeInterval.getGenomeBeginPos().shifted(change.getAlt().length() - 1));
+				changeInterval.getGenomeBeginPos().shifted(change.getAlt().length() - 1));
 			if (!transcript.getCDSRegion().contains(changeInterval.getGenomeEndPos().shifted(-1)))
 				varChangeLastPos = varChangeLastPos.shifted(-1); // shift if projected to end position
 			this.varChangeLastPos = varChangeLastPos;
 			// "(...+2)/3" => round up integer division result
 			this.aaChange = new AminoAcidChange(refChangeBeginPos.getPos() / 3,
-					wtAASeq.substring(refChangeBeginPos.getPos() / 3, (refChangeLastPos.getPos() + 1 + 2) / 3),
-					varAASeq.substring(varChangeBeginPos.getPos() / 3, (varChangeLastPos.getPos() + 1 + 2) / 3));
+				wtAASeq.substring(refChangeBeginPos.getPos() / 3, (refChangeLastPos.getPos() + 1 + 2) / 3),
+				varAASeq.substring(varChangeBeginPos.getPos() / 3, (varChangeLastPos.getPos() + 1 + 2) / 3));
 
 			// Look for stop codon, starting at change position.
 			this.varAAStopPos = varAASeq.indexOf('*', refChangeBeginPos.getPos() / 3);
@@ -177,7 +164,7 @@ public final class BlockSubstitutionAnnotationBuilder extends AnnotationBuilder 
 				handleFrameShiftCase();
 
 			return new Annotation(transcript, change, varTypes, locAnno, getGenomicNTChange(), getCDSNTChange(),
-					proteinChange, messages);
+				proteinChange, messages);
 		}
 
 		private void handleNonFrameShiftCase() {
@@ -187,15 +174,15 @@ public final class BlockSubstitutionAnnotationBuilder extends AnnotationBuilder 
 			//
 			// Check for being a splice site variant. The splice donor, acceptor, and region intervals are disjoint.
 			if (so.overlapsWithSpliceDonorSite(changeInterval))
-				varTypes.addAll(ImmutableList.of(VariantEffect.SPLICE_DONOR_VARIANT));
+				varTypes.add(VariantEffect.SPLICE_DONOR_VARIANT);
 			else if (so.overlapsWithSpliceAcceptorSite(changeInterval))
-				varTypes.addAll(ImmutableList.of(VariantEffect.SPLICE_ACCEPTOR_VARIANT));
+				varTypes.add(VariantEffect.SPLICE_ACCEPTOR_VARIANT);
 			else if (so.overlapsWithSpliceRegion(changeInterval))
-				varTypes.addAll(ImmutableList.of(VariantEffect.SPLICE_REGION_VARIANT));
+				varTypes.add(VariantEffect.SPLICE_REGION_VARIANT);
 			if (so.overlapsWithTranslationalStopSite(changeInterval))
 				varTypes.add(VariantEffect.STOP_LOST);
 			else if (change.getAlt().length() > change.getRef().length())
-				varTypes.addAll(ImmutableList.of(VariantEffect.INTERNAL_FEATURE_ELONGATION));
+				varTypes.add(VariantEffect.INTERNAL_FEATURE_ELONGATION);
 			else if (change.getAlt().length() < change.getRef().length())
 				varTypes.addAll(ImmutableList.of(VariantEffect.FEATURE_TRUNCATION, VariantEffect.COMPLEX_SUBSTITUTION));
 			else
@@ -207,7 +194,7 @@ public final class BlockSubstitutionAnnotationBuilder extends AnnotationBuilder 
 
 			// Normalize the amino acid change with the var AA sequence.
 			while (aaChange.getRef().length() > 0 && aaChange.getAlt().length() > 0
-					&& aaChange.getRef().charAt(0) == aaChange.getAlt().charAt(0))
+				&& aaChange.getRef().charAt(0) == aaChange.getAlt().charAt(0))
 				aaChange = aaChange.shiftRight();
 			// Truncate change.alt after stop codon.
 			aaChange = AminoAcidChangeNormalizer.truncateAltAfterStopCodon(aaChange);
@@ -223,7 +210,7 @@ public final class BlockSubstitutionAnnotationBuilder extends AnnotationBuilder 
 			final String wtAAFirst = Character.toString(wtAASeq.charAt(aaChange.getPos()));
 			final String wtAALast = Character.toString(wtAASeq.charAt(aaChange.getLastPos()));
 			final String insertedAAs = varAASeq.substring(aaChange.getPos(),
-					aaChange.getPos() + aaChange.getAlt().length());
+				aaChange.getPos() + aaChange.getAlt().length());
 			final String mutAAFirst = insertedAAs.isEmpty() ? "" : insertedAAs.substring(0, 1);
 
 			// We differentiate the case of replacing a single amino acid and replacing multiple ones. Note that
@@ -231,16 +218,16 @@ public final class BlockSubstitutionAnnotationBuilder extends AnnotationBuilder 
 			// "any>*") then we handle it as replacing the first amino acid by the stop codon.
 			if (insertedAAs.isEmpty() && aaChange.getRef().length() > 1)
 				proteinChange = ProteinDeletion.buildWithoutSeqDescription(true, wtAAFirst, aaChange.getPos(), wtAALast,
-						aaChange.getLastPos());
+					aaChange.getLastPos());
 			if (insertedAAs.isEmpty() && aaChange.getRef().length() == 1)
 				proteinChange = ProteinDeletion.buildWithoutSeqDescription(true, wtAAFirst, aaChange.getPos(),
-						wtAAFirst, aaChange.getPos());
+					wtAAFirst, aaChange.getPos());
 			else if (aaChange.getPos() == aaChange.getLastPos() || aaChange.getAlt().equals("*"))
 				proteinChange = ProteinSubstitution.build(true, wtAAFirst, aaChange.getPos(),
-						insertedAAs.substring(0, 1));
+					insertedAAs.substring(0, 1));
 			else
 				proteinChange = ProteinIndel.buildWithSeqDescription(true, wtAAFirst, aaChange.getPos(), wtAALast,
-						aaChange.getLastPos(), new ProteinSeqDescription(), new ProteinSeqDescription(insertedAAs));
+					aaChange.getLastPos(), new ProteinSeqDescription(), new ProteinSeqDescription(insertedAAs));
 
 			// In the case of stop loss, we have to add the "ext" suffix to the protein annotation.
 			if (so.overlapsWithTranslationalStopSite(changeInterval)) {
@@ -250,7 +237,7 @@ public final class BlockSubstitutionAnnotationBuilder extends AnnotationBuilder 
 					proteinChange = ProteinExtension.build(true, wtAAFirst, aaChange.getPos(), mutAAFirst, shift);
 				else
 					proteinChange = ProteinExtension.buildWithoutTerminal(true, wtAAFirst, aaChange.getPos(),
-							mutAAFirst);
+						mutAAFirst);
 			}
 
 			if (!varTypes.contains(VariantEffect.MNV))
@@ -264,11 +251,11 @@ public final class BlockSubstitutionAnnotationBuilder extends AnnotationBuilder 
 			//
 			// Check for being a splice site variant. The splice donor, acceptor, and region intervals are disjoint.
 			if (so.overlapsWithSpliceDonorSite(changeInterval))
-				varTypes.addAll(ImmutableList.of(VariantEffect.SPLICE_DONOR_VARIANT));
+				varTypes.add(VariantEffect.SPLICE_DONOR_VARIANT);
 			else if (so.overlapsWithSpliceAcceptorSite(changeInterval))
-				varTypes.addAll(ImmutableList.of(VariantEffect.SPLICE_ACCEPTOR_VARIANT));
+				varTypes.add(VariantEffect.SPLICE_ACCEPTOR_VARIANT);
 			else if (so.overlapsWithSpliceRegion(changeInterval))
-				varTypes.addAll(ImmutableList.of(VariantEffect.SPLICE_REGION_VARIANT));
+				varTypes.add(VariantEffect.SPLICE_REGION_VARIANT);
 			// Check whether it overlaps with the stop site.
 			if (so.overlapsWithTranslationalStopSite(changeInterval))
 				varTypes.add(VariantEffect.STOP_LOST);

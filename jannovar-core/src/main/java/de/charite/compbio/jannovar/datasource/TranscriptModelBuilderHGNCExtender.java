@@ -1,5 +1,16 @@
 package de.charite.compbio.jannovar.datasource;
 
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
+import de.charite.compbio.jannovar.JannovarException;
+import de.charite.compbio.jannovar.hgnc.AltGeneIDType;
+import de.charite.compbio.jannovar.hgnc.HGNCParser;
+import de.charite.compbio.jannovar.hgnc.HGNCRecord;
+import de.charite.compbio.jannovar.impl.util.PathUtil;
+import de.charite.compbio.jannovar.reference.TranscriptModelBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -8,40 +19,35 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
-
-import de.charite.compbio.jannovar.JannovarException;
-import de.charite.compbio.jannovar.hgnc.AltGeneIDType;
-import de.charite.compbio.jannovar.hgnc.HGNCParser;
-import de.charite.compbio.jannovar.hgnc.HGNCRecord;
-import de.charite.compbio.jannovar.impl.util.PathUtil;
-import de.charite.compbio.jannovar.reference.TranscriptModelBuilder;
-
 /**
  * Helper class for extending {@link TranscriptModelBuilder} objects with HGNC information
- * 
+ *
  * @author <a href="mailto:manuel.holtgrewe@bihealth.de">Manuel Holtgrewe</a>
  */
 public class TranscriptModelBuilderHGNCExtender {
 
-	/** the logger object to use */
+	/**
+	 * the logger object to use
+	 */
 	private static final Logger LOGGER = LoggerFactory.getLogger(TranscriptModelBuilderHGNCExtender.class);
 
-	/** Path to downloaded HGNC file */
+	/**
+	 * Path to downloaded HGNC file
+	 */
 	private final String basePath;
 
-	/** Extract gene ID from {@link HGNCRecord} */
+	/**
+	 * Extract gene ID from {@link HGNCRecord}
+	 */
 	Function<HGNCRecord, List<String>> extractorHGNC;
 
-	/** Extract gene ID from {@link TranscriptModelBuilder} */
+	/**
+	 * Extract gene ID from {@link TranscriptModelBuilder}
+	 */
 	Function<TranscriptModelBuilder, String> extractorTX;
 
 	public TranscriptModelBuilderHGNCExtender(String basePath, Function<HGNCRecord, List<String>> extractorHGNC,
-			Function<TranscriptModelBuilder, String> extractorTX) {
+											  Function<TranscriptModelBuilder, String> extractorTX) {
 		super();
 		this.basePath = basePath;
 		this.extractorHGNC = extractorHGNC;
@@ -50,9 +56,8 @@ public class TranscriptModelBuilderHGNCExtender {
 
 	/**
 	 * Augment the {@link TranscriptModelBuilder}s with HGNC information
-	 * 
-	 * @param builders
-	 *            to augment
+	 *
+	 * @param builders to augment
 	 * @throws JannovarException
 	 */
 	public void run(Map<String, TranscriptModelBuilder> builders) throws JannovarException {
@@ -75,16 +80,16 @@ public class TranscriptModelBuilderHGNCExtender {
 
 		// Augment the information in builders
 		for (TranscriptModelBuilder builder : builders.values()) {
-			if (extractorTX.apply(builder) == null) {
-				LOGGER.info("Transcript {} has no gene ID, not linking to HGNC",
-						new Object[] { builder.getAccession() });
+			String geneId = extractorTX.apply(builder);
+			if (geneId == null) {
+				LOGGER.debug("Transcript {} has no gene ID, not linking to HGNC", builder.getAccession());
 				continue;
 			}
-			if (!recordByGeneID.containsKey(extractorTX.apply(builder))) {
-				LOGGER.info("Gene ID not found in HGNC: {}", new Object[] { extractorTX.apply(builder) });
+			if (!recordByGeneID.containsKey(geneId)) {
+				LOGGER.debug("Gene ID not found in HGNC: {}", geneId);
 				continue;
 			}
-			final HGNCRecord hgncRecord = recordByGeneID.get(extractorTX.apply(builder));
+			final HGNCRecord hgncRecord = recordByGeneID.get(geneId);
 
 			// Update gene symbol/HUGO identifier, after all HGNC is the authority
 			builder.setGeneSymbol(hgncRecord.getSymbol());
@@ -95,20 +100,20 @@ public class TranscriptModelBuilderHGNCExtender {
 			putValue(altIDs, AltGeneIDType.HGNC_ID.toString(), hgncRecord.getHgncID());
 			putValue(altIDs, AltGeneIDType.HGNC_SYMBOL.toString(), hgncRecord.getSymbol());
 			putValue(altIDs, AltGeneIDType.HGNC_ALIAS.toString(),
-					Joiner.on(AltGeneIDType.HGNC_ALIAS.getSeparator()).join(hgncRecord.getAliasSymbols()));
+				Joiner.on(AltGeneIDType.HGNC_ALIAS.getSeparator()).join(hgncRecord.getAliasSymbols()));
 			putValue(altIDs, AltGeneIDType.HGNC_PREVIOUS.toString(),
-					Joiner.on(AltGeneIDType.HGNC_PREVIOUS.getSeparator()).join(hgncRecord.getPrevSymbol()));
+				Joiner.on(AltGeneIDType.HGNC_PREVIOUS.getSeparator()).join(hgncRecord.getPrevSymbol()));
 			putValue(altIDs, AltGeneIDType.ENTREZ_ID.toString(), hgncRecord.getEntrezID());
 			putValue(altIDs, AltGeneIDType.ENSEMBL_GENE_ID.toString(), hgncRecord.getEnsemblGeneID());
 			putValue(altIDs, AltGeneIDType.VEGA_ID.toString(), hgncRecord.getVegaID());
 			putValue(altIDs, AltGeneIDType.UCSC_ID.toString(), hgncRecord.getUCSCID());
 			putValue(altIDs, AltGeneIDType.REFSEQ_ACCESSION.toString(), hgncRecord.getRefseqAccession());
 			putValue(altIDs, AltGeneIDType.CCDS_ID.toString(),
-					Joiner.on(AltGeneIDType.CCDS_ID.getSeparator()).join(hgncRecord.getCCDSIDs()));
+				Joiner.on(AltGeneIDType.CCDS_ID.getSeparator()).join(hgncRecord.getCCDSIDs()));
 			putValue(altIDs, AltGeneIDType.UNIPROT_ID.toString(),
-					Joiner.on(AltGeneIDType.UNIPROT_ID.getSeparator()).join(hgncRecord.getUniprotIDs()));
+				Joiner.on(AltGeneIDType.UNIPROT_ID.getSeparator()).join(hgncRecord.getUniprotIDs()));
 			putValue(altIDs, AltGeneIDType.PUBMED_ID.toString(),
-					Joiner.on(AltGeneIDType.PUBMED_ID.getSeparator()).join(hgncRecord.getPubmedIDs()));
+				Joiner.on(AltGeneIDType.PUBMED_ID.getSeparator()).join(hgncRecord.getPubmedIDs()));
 			putValue(altIDs, AltGeneIDType.MGD_ID.toString(), hgncRecord.getMGDID());
 			putValue(altIDs, AltGeneIDType.RGD_ID.toString(), hgncRecord.getRGDID());
 			putValue(altIDs, AltGeneIDType.COSMIC_ID.toString(), hgncRecord.getCosmicID());
@@ -120,7 +125,7 @@ public class TranscriptModelBuilderHGNCExtender {
 	 * Put key/value pair into map if value is not null and not the empty string
 	 */
 	private void putValue(Map<String, String> altIDs, String key, String value) {
-		if (value != null || !"".equals(value))
+		if (value != null && !value.isEmpty())
 			altIDs.put(key, value);
 	}
 

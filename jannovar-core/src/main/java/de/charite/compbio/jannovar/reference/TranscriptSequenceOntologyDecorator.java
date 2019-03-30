@@ -1,23 +1,26 @@
 package de.charite.compbio.jannovar.reference;
 
+import com.google.common.collect.ImmutableList;
 import de.charite.compbio.jannovar.Immutable;
 
 /**
- * Functionality for finding out about certain points/regions of {@link TranscriptModel} using <b>genomic</b> positions.
+ * Functionality for finding out about certain points/regions of {@link TranscriptModel} using <b>genomic</b>
+ * positions.
  *
  * @author <a href="mailto:manuel.holtgrewe@charite.de">Manuel Holtgrewe</a>
  */
 @Immutable
 public final class TranscriptSequenceOntologyDecorator {
 
-	/** the transcript information to perform the projection upon. */
+	/**
+	 * the transcript information to perform the projection upon.
+	 */
 	private final TranscriptModel transcript;
 
 	/**
 	 * Initialize the object with the given {@link TranscriptModel}.
 	 *
-	 * @param transcript
-	 *            the {@link TranscriptModel} to decorate
+	 * @param transcript the {@link TranscriptModel} to decorate
 	 */
 	public TranscriptSequenceOntologyDecorator(TranscriptModel transcript) {
 		this.transcript = transcript;
@@ -57,6 +60,40 @@ public final class TranscriptSequenceOntologyDecorator {
 	}
 
 	/**
+	 * Returns the <b>genomic</b> intervals of the exonic 5' UTR regions.
+	 *
+	 * @return the {@link GenomeInterval}s with exonic 5' UTR sequence
+	 */
+	public ImmutableList<GenomeInterval> getFivePrimeUTRExonIntervals() {
+		return getIntersectedExons(getFivePrimeUTRInterval());
+	}
+
+	private ImmutableList<GenomeInterval> getIntersectedExons(GenomeInterval other) {
+		final ImmutableList.Builder<GenomeInterval> result = ImmutableList.builder();
+		for (GenomeInterval exon : transcript.getExonRegions()) {
+			final GenomeInterval itv = exon.intersection(other);
+			if (itv.length() > 0) {
+				result.add(itv);
+			}
+		}
+		return result.build();
+	}
+
+	/**
+	 * Query whether interval overlaps with exonic 5' UTR sequence.
+	 *
+	 * @return {@code true} if this is the case
+	 */
+	public boolean overlapsWithFivePrimeUTRExon(GenomeInterval itv) {
+		for (GenomeInterval exon : getIntersectedExons(getFivePrimeUTRInterval())) {
+			if (exon.overlapsWith(itv)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * Returns the <b>genomic</b> 3' UTR interval.
 	 *
 	 * @return the {@link GenomeInterval} with the 3' UTR
@@ -68,8 +105,30 @@ public final class TranscriptSequenceOntologyDecorator {
 	}
 
 	/**
-	 * @param interval
-	 *            query whether <code>interval</code> contains an exon
+	 * Returns the <b>genomic</b> intervals of the exonic 3' UTR regions
+	 *
+	 * @return the {@link GenomeInterval}s with exonic 3' UTR sequence
+	 */
+	public ImmutableList<GenomeInterval> getThreePrimeUTRExonIntervals() {
+		return getIntersectedExons(getThreePrimeUTRInterval());
+	}
+
+	/**
+	 * Query whether interval overlaps with exonic 3' UTR sequence.
+	 *
+	 * @return {@code true} if this is the case
+	 */
+	public boolean overlapsWithThreePrimeUTRExon(GenomeInterval itv) {
+		for (GenomeInterval exon : getIntersectedExons(getThreePrimeUTRInterval())) {
+			if (exon.overlapsWith(itv)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * @param interval query whether <code>interval</code> contains an exon
 	 * @return <code>true</code> if <code>interval</code> contains a full exon (coding or non-coding).
 	 */
 	public boolean containsExon(GenomeInterval interval) {
@@ -80,8 +139,7 @@ public final class TranscriptSequenceOntologyDecorator {
 	}
 
 	/**
-	 * @param interval
-	 *            query whether <code>interval</code> overlaps with a CDS exon (exon that overlaps with CDS)
+	 * @param interval query whether <code>interval</code> overlaps with a CDS exon (exon that overlaps with CDS)
 	 * @return <code>true</code> if <code>interval</code> overlaps with a CDS-overlapping exon
 	 */
 	public boolean overlapsWithCDSExon(GenomeInterval interval) {
@@ -92,8 +150,7 @@ public final class TranscriptSequenceOntologyDecorator {
 	}
 
 	/**
-	 * @param interval
-	 *            the {@link GenomeInterval} to use for querying
+	 * @param interval the {@link GenomeInterval} to use for querying
 	 * @return <code>true</code> if the {@link GenomeInterval} falls fully into the coding part of an exon
 	 */
 	public boolean liesInCDSExon(GenomeInterval interval) {
@@ -101,8 +158,7 @@ public final class TranscriptSequenceOntologyDecorator {
 	}
 
 	/**
-	 * @param pos
-	 *            the {@link GenomePosition} to use for querying
+	 * @param pos the {@link GenomePosition} to use for querying
 	 * @return <code>true</code> if the {@link GenomePosition} points to a base in the coding part of an exon
 	 */
 	public boolean liesInCDSExon(GenomePosition pos) {
@@ -110,8 +166,7 @@ public final class TranscriptSequenceOntologyDecorator {
 	}
 
 	/**
-	 * @param interval
-	 *            query whether <code>interval</code> overlaps with the CDS region
+	 * @param interval query whether <code>interval</code> overlaps with the CDS region
 	 * @return <code>true</code> if <code>interval</code> overlaps with the CDS region of the transcript
 	 */
 	public boolean overlapsWithCDS(GenomeInterval interval) {
@@ -126,8 +181,7 @@ public final class TranscriptSequenceOntologyDecorator {
 	}
 
 	/**
-	 * @param changeInterval
-	 *            the {@link GenomeInterval} to use for the query
+	 * @param changeInterval the {@link GenomeInterval} to use for the query
 	 * @return <code>true</code> if <code>changeInterval</code> overlaps with an intron of {@link #transcript}
 	 */
 	public boolean overlapsWithIntron(GenomeInterval changeInterval) {
@@ -154,10 +208,9 @@ public final class TranscriptSequenceOntologyDecorator {
 	}
 
 	/**
-	 * @param changeInterval
-	 *            the {@link GenomeInterval} to use for the query
+	 * @param changeInterval the {@link GenomeInterval} to use for the query
 	 * @return <code>true</code> if <code>changeInterval</code> overlaps with an intron of {@link #transcript} that
-	 *         overlaps with the CDS
+	 * overlaps with the CDS
 	 */
 	public boolean overlapsWithCDSIntron(GenomeInterval changeInterval) {
 		// TODO(holtgrem): Test me!
@@ -171,7 +224,7 @@ public final class TranscriptSequenceOntologyDecorator {
 
 	/**
 	 * @return <code>true</code> if the {@link GenomePosition} lies within an intron of {@link #transcript} that
-	 *         overlaps with the CDS
+	 * overlaps with the CDS
 	 */
 	public boolean liesInCDSIntron(GenomePosition pos) {
 		// TODO(holtgrem): Test me!
@@ -184,8 +237,7 @@ public final class TranscriptSequenceOntologyDecorator {
 	}
 
 	/**
-	 * @param interval
-	 *            the {@link GenomeInterval} to use for querying
+	 * @param interval the {@link GenomeInterval} to use for querying
 	 * @return <code>true</code> if the {@link GenomeInterval} overlaps with the translational start site
 	 */
 	public boolean overlapsWithTranslationalStartSite(GenomeInterval interval) {
@@ -200,8 +252,7 @@ public final class TranscriptSequenceOntologyDecorator {
 	}
 
 	/**
-	 * @param interval
-	 *            the {@link GenomeInterval} to use for querying
+	 * @param interval the {@link GenomeInterval} to use for querying
 	 * @return <code>true</code> if the {@link GenomeInterval} overlaps with the translational stop site
 	 */
 	public boolean overlapsWithTranslationalStopSite(GenomeInterval interval) {
@@ -217,12 +268,11 @@ public final class TranscriptSequenceOntologyDecorator {
 
 	/**
 	 * Returns whether the given <code>interval</code> overlaps with a splice region.
-	 *
+	 * <p>
 	 * A splice_region_variant is a sequence variant in which a change has occurred within the region of the splice
 	 * site, either within 1-3 bases of the exon or 3-8 bases of the intron.
 	 *
-	 * @param interval
-	 *            the {@link GenomeInterval} to use for querying
+	 * @param interval the {@link GenomeInterval} to use for querying
 	 * @return <code>true</code> if the {@link GenomeInterval} overlaps with a splice region.
 	 */
 	public boolean overlapsWithSpliceRegion(GenomeInterval interval) {
@@ -238,7 +288,7 @@ public final class TranscriptSequenceOntologyDecorator {
 			if (i > 0) {
 				// check for acceptor region
 				GenomeInterval spliceRegionInterval = new GenomeInterval(exonInterval.getGenomeBeginPos().shifted(-8),
-						11);
+					11);
 				if (interval.overlapsWith(spliceRegionInterval))
 					return true;
 			}
@@ -248,12 +298,11 @@ public final class TranscriptSequenceOntologyDecorator {
 
 	/**
 	 * Returns whether the given <code>pos</code> lies within a splice region.
-	 *
+	 * <p>
 	 * A splice_region_variant is a sequence variant in which a change has occurred within the region of the splice
 	 * site, either within 1-3 bases of the exon or 3-8 bases of the intron.
 	 *
-	 * @param pos
-	 *            the {@link GenomePosition} to use for querying
+	 * @param pos the {@link GenomePosition} to use for querying
 	 * @return <code>true</code> if the {@link GenomePosition} lies within a splice donor site.
 	 */
 	public boolean liesInSpliceRegion(GenomePosition pos) {
@@ -269,7 +318,7 @@ public final class TranscriptSequenceOntologyDecorator {
 			if (i > 0) {
 				// check for acceptor region
 				GenomeInterval spliceRegionInterval = new GenomeInterval(exonInterval.getGenomeBeginPos().shifted(-8),
-						11);
+					11);
 				if (spliceRegionInterval.contains(pos))
 					return true;
 			}
@@ -279,11 +328,10 @@ public final class TranscriptSequenceOntologyDecorator {
 
 	/**
 	 * Returns whether the given <code>interval</code> overlaps with a splice donor site.
-	 *
+	 * <p>
 	 * A splice variant that changes the 2 base pair region at the 5' end of an intron.
 	 *
-	 * @param interval
-	 *            the {@link GenomeInterval} to use for querying
+	 * @param interval the {@link GenomeInterval} to use for querying
 	 * @return <code>true</code> if the {@link GenomeInterval} overlaps with a splice donor site.
 	 */
 	public boolean overlapsWithSpliceDonorSite(GenomeInterval interval) {
@@ -299,11 +347,10 @@ public final class TranscriptSequenceOntologyDecorator {
 
 	/**
 	 * Returns whether the given <code>pos</code> lies within a splice donor site.
-	 *
+	 * <p>
 	 * A splice variant that changes the 2 base pair region at the 5' end of an intron.
 	 *
-	 * @param pos
-	 *            the {@link GenomePosition} to use for querying
+	 * @param pos the {@link GenomePosition} to use for querying
 	 * @return <code>true</code> if the {@link GenomePosition} lies within a splice donor site.
 	 */
 	public boolean liesInSpliceDonorSite(GenomePosition pos) {
@@ -319,11 +366,10 @@ public final class TranscriptSequenceOntologyDecorator {
 
 	/**
 	 * Returns whether the given <code>interval</code> overlaps with a splice acceptor site.
-	 *
+	 * <p>
 	 * A splice variant that changes the 2 base pair region at the 3' end of an intron.
 	 *
-	 * @param interval
-	 *            the {@link GenomeInterval} to use for querying
+	 * @param interval the {@link GenomeInterval} to use for querying
 	 * @return <code>true</code> if the {@link GenomeInterval} overlaps with a splice acceptor site.
 	 */
 	public boolean overlapsWithSpliceAcceptorSite(GenomeInterval interval) {
@@ -339,11 +385,10 @@ public final class TranscriptSequenceOntologyDecorator {
 
 	/**
 	 * Returns whether the given <code>pos</code> lies within a splice acceptor site.
-	 *
+	 * <p>
 	 * A splice variant that changes the 2 base pair region at the 3' end of an intron.
 	 *
-	 * @param pos
-	 *            the {@link GenomePosition} to use for querying
+	 * @param pos the {@link GenomePosition} to use for querying
 	 * @return <code>true</code> if the {@link GenomePosition} lies within a splice acceptor site.
 	 */
 	public boolean liesInSpliceAcceptorSite(GenomePosition pos) {
@@ -358,19 +403,24 @@ public final class TranscriptSequenceOntologyDecorator {
 	}
 
 	/**
+	 * Length of upstream interval around a transcript.
+	 */
+	public static int UPSTREAM_LENGTH = 5_000;
+
+	/**
 	 * @return {@link GenomeInterval} that gives the upstream region of the transcript.
 	 */
 	public GenomeInterval getUpstreamInterval() {
-		return new GenomeInterval(transcript.getTXRegion().getGenomeBeginPos().shifted(-1000), 1000);
+		return new GenomeInterval(
+			transcript.getTXRegion().getGenomeBeginPos().shifted(-UPSTREAM_LENGTH), UPSTREAM_LENGTH);
 	}
 
 	/**
 	 * Returns whether the given <code>interval</code> overlaps with the upstream region of the transcript.
+	 * <p>
+	 * The upstream region of the transcript is up to {@link #UPSTREAM_LENGTH} bp upstream of the transcript.
 	 *
-	 * The upstream region of the transcript is up to 1000 bp upstream of the transcript.
-	 *
-	 * @param interval
-	 *            the {@link GenomeInterval} to use for querying
+	 * @param interval the {@link GenomeInterval} to use for querying
 	 * @return <code>true</code> if the {@link GenomeInterval} overlaps with the upstream region of the transcript.
 	 */
 	public boolean overlapsWithUpstreamRegion(GenomeInterval interval) {
@@ -380,11 +430,10 @@ public final class TranscriptSequenceOntologyDecorator {
 
 	/**
 	 * Returns whether the given <code>pos</code> lies within with the upstream region of the transcript.
+	 * <p>
+	 * The upstream region of the transcript is up to {@link #UPSTREAM_LENGTH} bp upstream of the transcript.
 	 *
-	 * The upstream region of the transcript is up to 1000 bp upstream of the transcript.
-	 *
-	 * @param pos
-	 *            the {@link GenomePosition} to use for querying
+	 * @param pos the {@link GenomePosition} to use for querying
 	 * @return <code>true</code> if the {@link GenomePosition} lies within the upstream region of the transcript.
 	 */
 	public boolean liesInUpstreamRegion(GenomePosition pos) {
@@ -393,19 +442,23 @@ public final class TranscriptSequenceOntologyDecorator {
 	}
 
 	/**
+	 * Length of downstream interval around a transcript.
+	 */
+	public static int DOWNSTREAM_LENGTH = 5_000;
+
+	/**
 	 * @return {@link GenomeInterval} that gives the downstream region of the transcript.
 	 */
 	public GenomeInterval getDownstreamInterval() {
-		return new GenomeInterval(transcript.getTXRegion().getGenomeEndPos(), 1000);
+		return new GenomeInterval(transcript.getTXRegion().getGenomeEndPos(), DOWNSTREAM_LENGTH);
 	}
 
 	/**
 	 * Returns whether the given <code>interval</code> overlaps with the downstream region of the transcript.
+	 * <p>
+	 * The upstream region of the transcript is up to {@link #UPSTREAM_LENGTH} bp upstream of the transcript.
 	 *
-	 * The upstream region of the transcript is up to 1000 bp upstream of the transcript.
-	 *
-	 * @param interval
-	 *            the {@link GenomeInterval} to use for querying
+	 * @param interval the {@link GenomeInterval} to use for querying
 	 * @return <code>true</code> if the {@link GenomeInterval} overlaps with the downstream region of the transcript.
 	 */
 	public boolean overlapsWithDownstreamRegion(GenomeInterval interval) {
@@ -415,11 +468,10 @@ public final class TranscriptSequenceOntologyDecorator {
 
 	/**
 	 * Returns whether the given <code>pos</code> lies within with the downstream region of the transcript.
+	 * <p>
+	 * The upstream region of the transcript is up to {@link #DOWNSTREAM_LENGTH} bp downstream of the transcript.
 	 *
-	 * The upstream region of the transcript is up to 1000 bp downstream of the transcript.
-	 *
-	 * @param pos
-	 *            the {@link GenomePosition} to use for querying
+	 * @param pos the {@link GenomePosition} to use for querying
 	 * @return <code>true</code> if the {@link GenomePosition} lies within the downstream region of the transcript.
 	 */
 	public boolean liesInDownstreamRegion(GenomePosition pos) {
@@ -428,8 +480,7 @@ public final class TranscriptSequenceOntologyDecorator {
 	}
 
 	/**
-	 * @param interval
-	 *            the {@link GenomeInterval} to use for querying
+	 * @param interval the {@link GenomeInterval} to use for querying
 	 * @return <code>true</code> if the {@link GenomeInterval} overlaps with the 5' UTR
 	 */
 	public boolean overlapsWithFivePrimeUTR(GenomeInterval interval) {
@@ -437,8 +488,7 @@ public final class TranscriptSequenceOntologyDecorator {
 	}
 
 	/**
-	 * @param pos
-	 *            the {@link GenomePosition} to use for querying
+	 * @param pos the {@link GenomePosition} to use for querying
 	 * @return <code>true</code> if the {@link GenomePosition} lies in the 5' UTR
 	 */
 	public boolean liesInFivePrimeUTR(GenomePosition pos) {
@@ -446,8 +496,7 @@ public final class TranscriptSequenceOntologyDecorator {
 	}
 
 	/**
-	 * @param interval
-	 *            the {@link GenomeInterval} to use for querying
+	 * @param interval the {@link GenomeInterval} to use for querying
 	 * @return <code>true</code> if the {@link GenomeInterval} overlaps with the 3' UTR
 	 */
 	public boolean overlapsWithThreePrimeUTR(GenomeInterval interval) {
@@ -455,8 +504,7 @@ public final class TranscriptSequenceOntologyDecorator {
 	}
 
 	/**
-	 * @param pos
-	 *            the {@link GenomePosition} to use for querying
+	 * @param pos the {@link GenomePosition} to use for querying
 	 * @return <code>true</code> if the {@link GenomePosition} lies in the 3' UTR
 	 */
 	public boolean liesInThreePrimeUTR(GenomePosition pos) {
@@ -464,8 +512,7 @@ public final class TranscriptSequenceOntologyDecorator {
 	}
 
 	/**
-	 * @param interval
-	 *            the {@link GenomeInterval} to use for querying
+	 * @param interval the {@link GenomeInterval} to use for querying
 	 * @return <code>true</code> if the {@link GenomeInterval} falls fully into an intron
 	 */
 	public boolean liesInIntron(GenomeInterval interval) {
@@ -480,8 +527,7 @@ public final class TranscriptSequenceOntologyDecorator {
 	}
 
 	/**
-	 * @param interval
-	 *            the {@link GenomeInterval} to use for querying
+	 * @param interval the {@link GenomeInterval} to use for querying
 	 * @return <code>true</code> if the {@link GenomeInterval} falls fully into an exon
 	 */
 	public boolean liesInExon(GenomeInterval interval) {
@@ -496,8 +542,7 @@ public final class TranscriptSequenceOntologyDecorator {
 	}
 
 	/**
-	 * @param pos
-	 *            the {@link GenomePosition} to use for querying
+	 * @param pos the {@link GenomePosition} to use for querying
 	 * @return <code>true</code> if the {@link GenomePosition} points to a base an exon
 	 */
 	public boolean liesInExon(GenomePosition pos) {
@@ -513,8 +558,7 @@ public final class TranscriptSequenceOntologyDecorator {
 	}
 
 	/**
-	 * @param interval
-	 *            the {@link GenomeInterval} to use for the overlap checking
+	 * @param interval the {@link GenomeInterval} to use for the overlap checking
 	 * @return <code>true</code> if the interval overlaps with an exon
 	 */
 	public boolean overlapsWithExon(GenomeInterval interval) {

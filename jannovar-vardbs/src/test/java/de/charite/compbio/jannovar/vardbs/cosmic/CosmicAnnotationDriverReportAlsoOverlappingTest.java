@@ -1,22 +1,20 @@
 package de.charite.compbio.jannovar.vardbs.cosmic;
 
-import java.util.ArrayList;
-import java.util.Collections;
-
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-
 import com.google.common.collect.Lists;
-
 import de.charite.compbio.jannovar.vardbs.base.DBAnnotationOptions;
 import de.charite.compbio.jannovar.vardbs.base.JannovarVarDBException;
 import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.vcf.VCFHeader;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
+
+import java.util.ArrayList;
+import java.util.Collections;
 
 /**
  * Test for annotation with UK10K reporting overlaps besides matches
- * 
+ *
  * @author <a href="mailto:manuel.holtgrewe@bihealth.de">Manuel Holtgrewe</a>
  */
 public class CosmicAnnotationDriverReportAlsoOverlappingTest extends CosmicAnnotationDriverBaseTest {
@@ -26,6 +24,7 @@ public class CosmicAnnotationDriverReportAlsoOverlappingTest extends CosmicAnnot
 		super.setUpClass();
 		options.setReportOverlapping(true);
 		options.setReportOverlappingAsMatching(false);
+		options.setIdentifierPrefix("COSMIC_");
 	}
 
 	@Test

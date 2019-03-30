@@ -1,9 +1,6 @@
 package de.charite.compbio.jannovar.annotation.builders;
 
-import java.util.ArrayList;
-
 import com.google.common.collect.ImmutableList;
-
 import de.charite.compbio.jannovar.annotation.Annotation;
 import de.charite.compbio.jannovar.annotation.InvalidGenomeVariant;
 import de.charite.compbio.jannovar.annotation.VariantEffect;
@@ -11,20 +8,11 @@ import de.charite.compbio.jannovar.hgvs.nts.NucleotideSeqDescription;
 import de.charite.compbio.jannovar.hgvs.nts.change.NucleotideChange;
 import de.charite.compbio.jannovar.hgvs.nts.change.NucleotideDeletion;
 import de.charite.compbio.jannovar.hgvs.protein.ProteinSeqDescription;
-import de.charite.compbio.jannovar.hgvs.protein.change.ProteinChange;
-import de.charite.compbio.jannovar.hgvs.protein.change.ProteinDeletion;
-import de.charite.compbio.jannovar.hgvs.protein.change.ProteinExtension;
-import de.charite.compbio.jannovar.hgvs.protein.change.ProteinFrameshift;
-import de.charite.compbio.jannovar.hgvs.protein.change.ProteinIndel;
-import de.charite.compbio.jannovar.hgvs.protein.change.ProteinMiscChange;
-import de.charite.compbio.jannovar.hgvs.protein.change.ProteinMiscChangeType;
+import de.charite.compbio.jannovar.hgvs.protein.change.*;
 import de.charite.compbio.jannovar.impl.util.Translator;
-import de.charite.compbio.jannovar.reference.AminoAcidChange;
-import de.charite.compbio.jannovar.reference.AminoAcidChangeNormalizer;
-import de.charite.compbio.jannovar.reference.CDSPosition;
-import de.charite.compbio.jannovar.reference.GenomeInterval;
-import de.charite.compbio.jannovar.reference.GenomeVariant;
-import de.charite.compbio.jannovar.reference.TranscriptModel;
+import de.charite.compbio.jannovar.reference.*;
+
+import java.util.EnumSet;
 
 /**
  * Builds {@link Annotation} objects for the deletion {@link GenomeVariant}s in the given {@link TranscriptModel}.
@@ -34,17 +22,13 @@ import de.charite.compbio.jannovar.reference.TranscriptModel;
 public final class DeletionAnnotationBuilder extends AnnotationBuilder {
 
 	/**
-	 * @param transcript
-	 *            {@link TranscriptInfo} to build the annotation for
-	 * @param change
-	 *            {@link GenomeVariant} to build the annotation with
-	 * @param options
-	 *            the configuration to use for the {@link AnnotationBuilder}
-	 * @throws InvalidGenomeVariant
-	 *             if <code>change</code> did not describe a deletion
+	 * @param transcript {@link TranscriptModel} to build the annotation for
+	 * @param change     {@link GenomeVariant} to build the annotation with
+	 * @param options    the configuration to use for the {@link AnnotationBuilder}
+	 * @throws InvalidGenomeVariant if <code>change</code> did not describe a deletion
 	 */
 	DeletionAnnotationBuilder(TranscriptModel transcript, GenomeVariant change, AnnotationBuilderOptions options)
-			throws InvalidGenomeVariant {
+		throws InvalidGenomeVariant {
 		super(transcript, change, options);
 
 		// Guard against invalid genome change.
@@ -60,9 +44,11 @@ public final class DeletionAnnotationBuilder extends AnnotationBuilder {
 		if (!transcript.isCoding())
 			return buildNonCodingAnnotation();
 
+		// TODO(holtgrewe): differentiate between transcript ablation and whole exon deletion here
+
 		final GenomeInterval changeInterval = change.getGenomeInterval();
 		if (so.containsExon(changeInterval)) // deletion of whole exon
-			return buildFeatureAblationAnnotation();
+			return buildExonLossAnnotation();
 		else if (so.overlapsWithTranslationalStartSite(changeInterval))
 			return buildStartLossAnnotation();
 		else if (so.overlapsWithCDSExon(changeInterval) && so.overlapsWithCDS(changeInterval))
@@ -82,21 +68,21 @@ public final class DeletionAnnotationBuilder extends AnnotationBuilder {
 		return new NucleotideDeletion(false, ntChangeRange, new NucleotideSeqDescription());
 	}
 
-	private Annotation buildFeatureAblationAnnotation() {
-		return new Annotation(transcript, change, ImmutableList.of(VariantEffect.TRANSCRIPT_ABLATION), locAnno,
-				getGenomicNTChange(), getCDSNTChange(), ProteinMiscChange.build(true, ProteinMiscChangeType.NO_PROTEIN),
-				messages);
+	private Annotation buildExonLossAnnotation() {
+		return new Annotation(transcript, change, ImmutableList.of(VariantEffect.EXON_LOSS_VARIANT), locAnno,
+			getGenomicNTChange(), getCDSNTChange(), ProteinMiscChange.build(true, ProteinMiscChangeType.NO_PROTEIN),
+			messages);
 	}
 
 	private Annotation buildStartLossAnnotation() {
 		return new Annotation(transcript, change, ImmutableList.of(VariantEffect.START_LOST), locAnno,
-				getGenomicNTChange(), getCDSNTChange(), ProteinMiscChange.build(true, ProteinMiscChangeType.NO_PROTEIN),
-				messages);
+			getGenomicNTChange(), getCDSNTChange(), ProteinMiscChange.build(true, ProteinMiscChangeType.NO_PROTEIN),
+			messages);
 	}
 
 	/**
 	 * Helper class for generating annotations for exonic CDS variants.
-	 *
+	 * <p>
 	 * We use this helper class to simplify the access to the parameters such as {@link #wtCDSSeq} etc.
 	 */
 	private class CDSExonicAnnotationBuilder {
@@ -119,7 +105,7 @@ public final class DeletionAnnotationBuilder extends AnnotationBuilder {
 		// Java.
 
 		// the variant type, updated in handleFrameShiftCase() and handleNonFrameShiftCase()
-		ArrayList<VariantEffect> varTypes = new ArrayList<VariantEffect>();
+		EnumSet<VariantEffect> varTypes = EnumSet.noneOf(VariantEffect.class);
 		// the amino acid change, updated in handleFrameShiftCase() and handleNonFrameShiftCase()
 		AminoAcidChange aaChange;
 		// the predicted protein change, updated in handleFrameShiftCase() and handleNonFrameShiftCase()
@@ -160,7 +146,7 @@ public final class DeletionAnnotationBuilder extends AnnotationBuilder {
 				handleFrameShiftCase();
 
 			return new Annotation(transcript, change, varTypes, locAnno, getGenomicNTChange(), getCDSNTChange(),
-					proteinChange, messages);
+				proteinChange, messages);
 		}
 
 		private void handleNonFrameShiftCase() {
@@ -170,11 +156,11 @@ public final class DeletionAnnotationBuilder extends AnnotationBuilder {
 			//
 			// Check for being a splice site variant. The splice donor, acceptor, and region intervals are disjoint.
 			if (so.overlapsWithSpliceDonorSite(changeInterval))
-				varTypes.addAll(ImmutableList.of(VariantEffect.SPLICE_DONOR_VARIANT));
+				varTypes.add(VariantEffect.SPLICE_DONOR_VARIANT);
 			else if (so.overlapsWithSpliceAcceptorSite(changeInterval))
-				varTypes.addAll(ImmutableList.of(VariantEffect.SPLICE_ACCEPTOR_VARIANT));
+				varTypes.add(VariantEffect.SPLICE_ACCEPTOR_VARIANT);
 			else if (so.overlapsWithSpliceRegion(changeInterval))
-				varTypes.addAll(ImmutableList.of(VariantEffect.SPLICE_REGION_VARIANT));
+				varTypes.add(VariantEffect.SPLICE_REGION_VARIANT);
 			// Check whether the variant overlaps with the stop site.
 			if (so.overlapsWithTranslationalStopSite(changeInterval))
 				varTypes.add(VariantEffect.STOP_LOST);
@@ -192,19 +178,19 @@ public final class DeletionAnnotationBuilder extends AnnotationBuilder {
 				if (aaChange.getPos() == aaChange.getLastPos()) {
 					if (aaChange.getAlt().length() > 0)
 						proteinChange = ProteinIndel.buildWithSeqDescription(true, wtAAFirst, aaChange.getPos(),
-								wtAAFirst, aaChange.getPos(), new ProteinSeqDescription(),
-								new ProteinSeqDescription(aaChange.getAlt()));
+							wtAAFirst, aaChange.getPos(), new ProteinSeqDescription(),
+							new ProteinSeqDescription(aaChange.getAlt()));
 					else
 						proteinChange = ProteinDeletion.buildWithSequence(true, wtAAFirst, aaChange.getPos(), wtAAFirst,
-								aaChange.getPos(), aaChange.getAlt());
+							aaChange.getPos(), aaChange.getAlt());
 				} else {
 					if (aaChange.getAlt().length() > 0)
 						proteinChange = ProteinIndel.buildWithSeqDescription(true, wtAAFirst, aaChange.getPos(),
-								wtAALast, aaChange.getLastPos(), new ProteinSeqDescription(),
-								new ProteinSeqDescription(aaChange.getAlt()));
+							wtAALast, aaChange.getLastPos(), new ProteinSeqDescription(),
+							new ProteinSeqDescription(aaChange.getAlt()));
 					else
 						proteinChange = ProteinDeletion.buildWithSequence(true, wtAAFirst, aaChange.getPos(), wtAALast,
-								aaChange.getLastPos(), aaChange.getAlt());
+							aaChange.getLastPos(), aaChange.getAlt());
 				}
 			} else {
 				// There is no stop codon any more! Create a "probably no protein is produced".
@@ -219,11 +205,11 @@ public final class DeletionAnnotationBuilder extends AnnotationBuilder {
 			//
 			// Check for being a splice site variant. The splice donor, acceptor, and region intervals are disjoint.
 			if (so.overlapsWithSpliceDonorSite(changeInterval))
-				varTypes.addAll(ImmutableList.of(VariantEffect.SPLICE_DONOR_VARIANT));
+				varTypes.add(VariantEffect.SPLICE_DONOR_VARIANT);
 			else if (so.overlapsWithSpliceAcceptorSite(changeInterval))
-				varTypes.addAll(ImmutableList.of(VariantEffect.SPLICE_ACCEPTOR_VARIANT));
+				varTypes.add(VariantEffect.SPLICE_ACCEPTOR_VARIANT);
 			else if (so.overlapsWithSpliceRegion(changeInterval))
-				varTypes.addAll(ImmutableList.of(VariantEffect.SPLICE_REGION_VARIANT));
+				varTypes.add(VariantEffect.SPLICE_REGION_VARIANT);
 			// Check whether the variant overlaps with the stop site.
 			if (so.overlapsWithTranslationalStopSite(changeInterval))
 				varTypes.add(VariantEffect.STOP_LOST);
@@ -238,26 +224,26 @@ public final class DeletionAnnotationBuilder extends AnnotationBuilder {
 
 			// Normalize the amino acid change, shifting to the right as long as change ref char equals var ref char.
 			while (aaChange.getRef().length() > 0 && aaChange.getPos() < varAASeq.length()
-					&& aaChange.getRef().charAt(0) == varAASeq.charAt(aaChange.getPos()))
+				&& aaChange.getRef().charAt(0) == varAASeq.charAt(aaChange.getPos()))
 				aaChange = aaChange.shiftRight();
 
 			// Handle the case of deleting a stop codon at the very last entry of the translated amino acid string and
 			// short-circuit.
-			if (varTypes.contains(VariantEffect.STOP_LOST) && aaChange.getPos() == varAASeq.length()) {
+			if (varTypes.contains(VariantEffect.STOP_LOST) && aaChange.getPos() >= varAASeq.length()) {
 				// Note: used to be "p.*${pos}del?"
 				proteinChange = ProteinMiscChange.build(true, ProteinMiscChangeType.DIFFICULT_TO_PREDICT);
 				return;
 			}
 			// Handle the case of deleting up to the end of the sequence.
-			if (aaChange.getPos() >= varAASeq.length()) {
+			if (aaChange.getLastPos() >= varAASeq.length()) {
 				final String wtAAFirst = Character.toString(wtAASeq.charAt(aaChange.getPos()));
 				final String wtAALast = Character.toString(wtAASeq.charAt(aaChange.getLastPos()));
 				if (aaChange.getRef().length() == 1)
 					proteinChange = ProteinDeletion.buildWithoutSeqDescription(true, wtAAFirst, aaChange.getPos(),
-							wtAAFirst, aaChange.getPos());
+						wtAAFirst, aaChange.getPos());
 				else
 					proteinChange = ProteinDeletion.buildWithoutSeqDescription(true, wtAAFirst, aaChange.getPos(),
-							wtAALast, aaChange.getLastPos());
+						wtAALast, aaChange.getLastPos());
 				return;
 			}
 

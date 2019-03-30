@@ -1,12 +1,11 @@
 package de.charite.compbio.jannovar.vardbs.cosmic;
 
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-
 import de.charite.compbio.jannovar.vardbs.base.DBAnnotationOptions;
 import de.charite.compbio.jannovar.vardbs.base.JannovarVarDBException;
 import htsjdk.variant.vcf.VCFHeader;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
 
 public class CosmicVCFHeaderExtenderTest {
 
@@ -28,6 +27,7 @@ public class CosmicVCFHeaderExtenderTest {
 		DBAnnotationOptions options = DBAnnotationOptions.createDefaults();
 		options.setReportOverlapping(true);
 		options.setReportOverlappingAsMatching(false);
+		options.setIdentifierPrefix("COSMIC_");
 
 		new CosmicVCFHeaderExtender(options).addHeaders(header);
 

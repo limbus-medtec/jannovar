@@ -1,24 +1,9 @@
 package de.charite.compbio.jannovar.impl.parse.ucsc;
 
-import java.io.BufferedReader;
-import java.io.DataInputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.zip.GZIPInputStream;
-
-import org.ini4j.Profile.Section;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
-
+import com.google.common.collect.Sets;
 import de.charite.compbio.jannovar.JannovarException;
 import de.charite.compbio.jannovar.UncheckedJannovarException;
 import de.charite.compbio.jannovar.data.ReferenceDictionary;
@@ -28,18 +13,22 @@ import de.charite.compbio.jannovar.impl.parse.TranscriptParseException;
 import de.charite.compbio.jannovar.impl.parse.TranscriptParser;
 import de.charite.compbio.jannovar.impl.parse.TranscriptSupportLevelsSetterFromLengths;
 import de.charite.compbio.jannovar.impl.util.PathUtil;
-import de.charite.compbio.jannovar.reference.GenomeInterval;
-import de.charite.compbio.jannovar.reference.PositionType;
-import de.charite.compbio.jannovar.reference.Strand;
-import de.charite.compbio.jannovar.reference.TranscriptModel;
-import de.charite.compbio.jannovar.reference.TranscriptModelBuilder;
-import de.charite.compbio.jannovar.reference.TranscriptSupportLevels;
+import de.charite.compbio.jannovar.reference.*;
+import org.ini4j.Profile.Section;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.zip.GZIPInputStream;
 
 // TODO(holtgrem): Interpret knownCanonical!
 
 /**
  * Parser for the UCCSC knownGene and related files.
- *
+ * <p>
  * Parses the four files from the UCSC database relating the KnownGenes. The main file, <code>knownGene.txt</code>, is
  * tab-separated and has the following fields:
  *
@@ -58,10 +47,10 @@ import de.charite.compbio.jannovar.reference.TranscriptSupportLevels;
  * <li>`proteinID` e.g., NP_001091971</li>
  * <li>`alignID` e.g., uc001irt.4 (Note: We do not need this field for our app).</li>
  * </ol>
- *
+ * <p>
  * Note that this file is a MySQL dump file used at the UCSC database. We will use this program to create a serialized
  * java object that can quickly be input to the Jannovar program.
- *
+ * <p>
  * This class additionally parses the ucsc <code>KnownToLocusLink.txt</code> file, which contains cross references from
  * the ucsc IDs to the corresponding Entrez Gene ids (earlier known as Locus Link):
  *
@@ -71,11 +60,11 @@ import de.charite.compbio.jannovar.reference.TranscriptSupportLevels;
  * uc010evf.3      3805
  * ...
  * </pre>
- *
+ * <p>
  * The class additionally parses the files <code>knownGeneMrna.txt</code> and <code>kgXref.txt</code>.
- *
+ * <p>
  * The result of parsing is the creation of a list of {@link TranscriptModel} objects.
- *
+ * <p>
  * It is possible to parse directly from the gzip file without decompressing them, or the start from the decompressed
  * files. The class checks of the files exist and if they have the suffix "gz". *
  *
@@ -85,7 +74,9 @@ import de.charite.compbio.jannovar.reference.TranscriptSupportLevels;
  */
 public class UCSCParser implements TranscriptParser {
 
-	/** the logger object to use */
+	/**
+	 * the logger object to use
+	 */
 	private static final Logger LOGGER = LoggerFactory.getLogger(UCSCParser.class);
 
 	/**
@@ -98,10 +89,14 @@ public class UCSCParser implements TranscriptParser {
 	 */
 	private final ReferenceDictionary refDict;
 
-	/** Path to directory where the to-be-parsed files live */
+	/**
+	 * Path to directory where the to-be-parsed files live
+	 */
 	private final String basePath;
 
-	/** INI {@link Section} from the configuration. */
+	/**
+	 * INI {@link Section} from the configuration.
+	 */
 	private final Section iniSection;
 
 	/**
@@ -110,18 +105,23 @@ public class UCSCParser implements TranscriptParser {
 	private HashMap<String, TranscriptModelBuilder> knownGeneMap;
 
 	/**
-	 * @param refDict
-	 *            path to {@link ReferenceDictionary} to use for name/id and id/length mapping.
-	 * @param basePath
-	 *            path to where the to-be-parsed files live
-	 * @param iniSection
-	 *            {@link Section} with configuration from INI file
+	 * List of gene identifiers of genes to include, if non-empty.
 	 */
-	public UCSCParser(ReferenceDictionary refDict, String basePath, Section iniSection) {
+	private final List<String> geneIdentifiers;
+
+	/**
+	 * @param refDict         path to {@link ReferenceDictionary} to use for name/id and id/length mapping.
+	 * @param basePath        path to where the to-be-parsed files live
+	 * @param iniSection      {@link Section} with configuration from INI file
+	 * @param geneIdentifiers list of gene identifiers to include if non-empty
+	 */
+	public UCSCParser(ReferenceDictionary refDict, String basePath, List<String> geneIdentifiers,
+					  Section iniSection) {
 		this.refDict = refDict;
 		this.basePath = basePath;
 		this.iniSection = iniSection;
-		this.knownGeneMap = new HashMap<String, TranscriptModelBuilder>();
+		this.knownGeneMap = new HashMap<>();
+		this.geneIdentifiers = geneIdentifiers;
 	}
 
 	public ImmutableList<TranscriptModel> run() throws TranscriptParseException {
@@ -147,7 +147,7 @@ public class UCSCParser implements TranscriptParser {
 		// Augment information in builders with
 		try {
 			new TranscriptModelBuilderHGNCExtender(basePath, r -> Lists.newArrayList(r.getEntrezID()),
-					tx -> tx.getGeneID()).run(this.knownGeneMap);
+				tx -> tx.getGeneID()).run(this.knownGeneMap);
 		} catch (JannovarException e) {
 			throw new UncheckedJannovarException("Problem extending transcripts with HGNC information", e);
 		}
@@ -157,32 +157,43 @@ public class UCSCParser implements TranscriptParser {
 		for (Map.Entry<String, TranscriptModelBuilder> entry : knownGeneMap.entrySet()) {
 			if (entry.getValue().getAltGeneIDs().isEmpty() && entry.getValue().getGeneID() != null) {
 				LOGGER.info("Using UCSC Entrez ID {} for transcript {} as HGNC did not provide alternative gene ID",
-						new Object[] { entry.getValue().getGeneID(), entry.getValue().getAccession() });
+					new Object[]{entry.getValue().getGeneID(), entry.getValue().getAccession()});
 				entry.getValue().getAltGeneIDs().put(AltGeneIDType.ENTREZ_ID.toString(), entry.getValue().getGeneID());
 			}
-			TranscriptModel info = entry.getValue().build();
-			if (checkTranscriptInfo(info))
-				result.add(info);
+			TranscriptModel model = entry.getValue().build();
+			if (checkTranscriptModel(model)) {
+				TranscriptModelBuilder builder = entry.getValue();
+				if (geneIdentifiers == null || geneIdentifiers.isEmpty()) {
+					result.add(model);
+				} else {
+					if (geneIdentifiers.contains(builder.getAccession()) || geneIdentifiers.contains(builder.getGeneID())
+						|| !Sets.intersection(ImmutableSet.copyOf(geneIdentifiers),
+						ImmutableSet.copyOf(builder.getAltGeneIDs().values())).isEmpty()
+
+					) {
+						result.add(model);
+					}
+				}
+			}
 		}
 		return result.build();
 	}
 
 	/**
-	 * Check whether the <code>info</code> has problems or not.
-	 *
+	 * Check whether the <code>model</code> has problems or not.
+	 * <p>
 	 * Known problems that is checked for:
 	 *
 	 * <ul>
 	 * <li>mRNA sequence is shorter than the sum of the exon lengths</li>
 	 * </ul>
 	 *
-	 * @param info
-	 *            {@link TranscriptInfo} to check for consistency
+	 * @param model {@link TranscriptModel} to check for consistency
 	 * @return <code>false</code> if known problems have been found
 	 */
-	private boolean checkTranscriptInfo(TranscriptModel info) {
-		if (info.transcriptLength() > info.getSequence().length()) {
-			LOGGER.debug("Transcript {} is indicated to be longer than its sequence. Ignoring.", info.getAccession());
+	private boolean checkTranscriptModel(TranscriptModel model) {
+		if (model.transcriptLength() > model.getSequence().length()) {
+			LOGGER.debug("Transcript {} is indicated to be longer than its sequence. Ignoring.", model.getAccession());
 			return false;
 		}
 		return true;
@@ -190,7 +201,7 @@ public class UCSCParser implements TranscriptParser {
 
 	/**
 	 * The function parses a single line of the knownGene.txt file.
-	 *
+	 * <p>
 	 * The fields of the file are tab separated and have the following structure:
 	 *
 	 * <ul>
@@ -206,7 +217,7 @@ public class UCSCParser implements TranscriptParser {
 	 * <li>9: exonends, e.g., "38676494,38677494,38678123,38680439,"</li>
 	 * <li>10: name, again (?), e.g., "uc021olp.1"</li>
 	 * </ul>
-	 *
+	 * <p>
 	 * The function additionally parses the start and end of the exons. Note that in the UCSC database, positions are
 	 * represented using half-open, zero-based coordinates. That is, if start is 2 and end is 7, then the first
 	 * nucleotide is at position 3 (one-based) and the last nucleotide is at positon 7 (one-based). For now, we are
@@ -214,28 +225,26 @@ public class UCSCParser implements TranscriptParser {
 	 * coordinates are typically represented in VCF files and is the way coordinate calculations are done in annovar. At
 	 * a later date, it may be worthwhile to switch to the UCSC-way of half-open zero based coordinates.
 	 *
-	 * @param line
-	 *            A single line of the UCSC knownGene.txt file
+	 * @param line A single line of the UCSC knownGene.txt file
 	 * @return {@link TranscriptModelBuilder} representing the line
-	 * @throws TranscriptParseException
-	 *             on problems parsing the data
+	 * @throws TranscriptParseException on problems parsing the data
 	 */
 	public TranscriptModelBuilder parseTranscriptModelFromLine(String line) throws TranscriptParseException {
 		TranscriptModelBuilder tib = new TranscriptModelBuilder();
 		String A[] = line.split("\t");
 		if (A.length != NFIELDS) {
 			String error = String.format(
-					"Malformed line in UCSC knownGene.txt file:\n%s\nExpected %d fields but there were %d", line,
-					NFIELDS, A.length);
+				"Malformed line in UCSC knownGene.txt file:\n%s\nExpected %d fields but there were %d", line,
+				NFIELDS, A.length);
 			throw new TranscriptParseException(error);
 		}
 		/* Field 0 has the accession number, e.g., uc010nxr.1. */
 		tib.setAccession(A[0]);
 		tib.setGeneSymbol(tib.getAccession()); // will be replaced when parsing
-												// geneXref file.
+		// geneXref file.
 		Integer chrID = refDict.getContigNameToID().get(A[1]);
 		if (chrID == null) // scaffolds such as chrUn_gl000243 cause Exception
-							// to be thrown.
+			// to be thrown.
 			throw new TranscriptParseException("Could not parse chromosome field: " + A[1]);
 
 		char strandC = A[2].charAt(0);
@@ -248,7 +257,7 @@ public class UCSCParser implements TranscriptParser {
 		int txStart, txEnd;
 		try {
 			txStart = Integer.parseInt(A[3]) + 1; // +1 to convert to one-based
-													// fully closed numbering
+			// fully closed numbering
 		} catch (NumberFormatException e) {
 			throw new TranscriptParseException("Could not parse txStart:" + A[3]);
 		}
@@ -258,13 +267,13 @@ public class UCSCParser implements TranscriptParser {
 			throw new TranscriptParseException("Could not parse txEnd:" + A[4]);
 		}
 		tib.setTXRegion(
-				new GenomeInterval(refDict, Strand.FWD, chrID.intValue(), txStart, txEnd, PositionType.ONE_BASED)
-						.withStrand(strand));
+			new GenomeInterval(refDict, Strand.FWD, chrID.intValue(), txStart, txEnd, PositionType.ONE_BASED)
+				.withStrand(strand));
 
 		int cdsStart, cdsEnd;
 		try {
 			cdsStart = Integer.parseInt(A[5]) + 1;// +1 to convert to one-based
-													// fully closed numbering
+			// fully closed numbering
 		} catch (NumberFormatException e) {
 			throw new TranscriptParseException("Could not parse cdsStart:" + A[5]);
 		}
@@ -274,8 +283,8 @@ public class UCSCParser implements TranscriptParser {
 			throw new TranscriptParseException("Could not parse cdsEnd:" + A[6]);
 		}
 		tib.setCDSRegion(
-				new GenomeInterval(refDict, Strand.FWD, chrID.intValue(), cdsStart, cdsEnd, PositionType.ONE_BASED)
-						.withStrand(strand));
+			new GenomeInterval(refDict, Strand.FWD, chrID.intValue(), cdsStart, cdsEnd, PositionType.ONE_BASED)
+				.withStrand(strand));
 
 		// Get number of exons.
 		short exonCount;
@@ -294,17 +303,17 @@ public class UCSCParser implements TranscriptParser {
 		String B[] = starts.split(",");
 		if (B.length != exonCount) {
 			String error = String.format("[UCSCKGParser] Malformed exonStarts list: found %d but I expected %d exons",
-					B.length, exonCount);
+				B.length, exonCount);
 			error = String.format("%s. This should never happen, the knownGene.txt file may be corrupted", error);
 			throw new TranscriptParseException(error);
 		}
 		for (int i = 0; i < exonCount; ++i) {
 			try {
 				exonStarts[i] = Integer.parseInt(B[i]) + 1; // Change 0-based to
-															// 1-based numbering
+				// 1-based numbering
 			} catch (NumberFormatException e) {
 				String error = String.format("[UCSCKGParser] Malformed exon start at position %d of line %s", i,
-						starts);
+					starts);
 				error = String.format("%s. This should never happen, the knownGene.txt file may be corrupted", error);
 				throw new TranscriptParseException(error);
 			}
@@ -323,7 +332,7 @@ public class UCSCParser implements TranscriptParser {
 
 		for (int i = 0; i < exonStarts.length; ++i)
 			tib.addExonRegion(new GenomeInterval(refDict, Strand.FWD, chrID.intValue(), exonStarts[i], exonEnds[i],
-					PositionType.ONE_BASED));
+				PositionType.ONE_BASED));
 
 		return tib;
 	}
@@ -331,10 +340,8 @@ public class UCSCParser implements TranscriptParser {
 	/**
 	 * Parses the UCSC knownGene.txt file.
 	 *
-	 * @param kgPath
-	 *            path to the knownGene.txt file
-	 * @throws TranscriptParseException
-	 *             on problems parsing the file
+	 * @param kgPath path to the knownGene.txt file
+	 * @throws TranscriptParseException on problems parsing the file
 	 */
 	private void parseKnownGeneFile(String kgPath) throws TranscriptParseException {
 		// Error handling can be improved with Java 7.
@@ -356,14 +363,14 @@ public class UCSCParser implements TranscriptParser {
 					// exceptionCount++;
 				}
 			}
-			// System.out.println("[INFO] Parsed " + knownGeneMap.size() +
+			// System.out.println("[INFO] Parsed " + knownGeneMap.size()
 			// " transcripts from UCSC knownGene resource");
 		} catch (FileNotFoundException fnfe) {
 			s = String.format("[Jannovar/USCSKGParser] Could not find KnownGene.txt file: %s\n%s", kgPath,
-					fnfe.toString());
+				fnfe.toString());
 		} catch (IOException e) {
 			s = String.format("[Jannovar/USCSKGParser] Exception while parsing UCSC KnownGene file at \"%s\"\n%s",
-					kgPath, e.toString());
+				kgPath, e.toString());
 		} finally {
 			try {
 				if (br != null)
@@ -378,7 +385,7 @@ public class UCSCParser implements TranscriptParser {
 
 	/**
 	 * Parses the ucsc knownToLocusLink.txt file, which contains cross references from ucsc KnownGene ids to Entrez Gene
-	 * ids. The function than adds an Entrez gene id to the corresponding {@link TranscriptInfoBuilder} objects.
+	 * ids. The function than adds an Entrez gene id to the corresponding {@link TranscriptModelBuilder} objects.
 	 */
 	private void parseKnown2LocusLink(String locusPath) throws TranscriptParseException {
 		try {
@@ -392,7 +399,7 @@ public class UCSCParser implements TranscriptParser {
 				String A[] = line.split("\t");
 				if (A.length != 2) {
 					String msg = String.format("Bad format for UCSC KnownToLocusLink.txt file: %s. "
-							+ "Got %d fields instead of the expected 2.", line, A.length);
+						+ "Got %d fields instead of the expected 2.", line, A.length);
 					throw new TranscriptParseException(msg);
 				}
 				String id = A[0];
@@ -409,14 +416,14 @@ public class UCSCParser implements TranscriptParser {
 			}
 			br.close();
 			LOGGER.info("knownToLocusLink contained ids for {} knownGenes (no ids available for {})", foundID,
-					notFoundID);
+				notFoundID);
 		} catch (FileNotFoundException fnfe) {
 			String s = String.format("Exception while parsing UCSC  knownToLocusLink file at \"%s\"\n%s", locusPath,
-					fnfe.toString());
+				fnfe.toString());
 			throw new TranscriptParseException(s);
 		} catch (IOException e) {
 			String s = String.format("Exception while parsing UCSC KnownToLocusfile at \"%s\"\n%s", locusPath,
-					e.toString());
+				e.toString());
 			throw new TranscriptParseException(s);
 		}
 	}
@@ -424,10 +431,8 @@ public class UCSCParser implements TranscriptParser {
 	/**
 	 * Parse the knownCanonical.txt file and set the transcript support level of {@link #tmb}.
 	 *
-	 * @param knownCanonicalPath
-	 *            path to the knownCanonical.txt file
-	 * @throws TranscriptParseException
-	 *             in case of problems
+	 * @param knownCanonicalPath path to the knownCanonical.txt file
+	 * @throws TranscriptParseException in case of problems
 	 */
 	private void parseKnownCanonical(String knownCanonicalPath) throws TranscriptParseException {
 		// assign LOW_PRIORITY to all transcripts
@@ -446,7 +451,7 @@ public class UCSCParser implements TranscriptParser {
 				String A[] = line.split("\t");
 				if (A.length != 6) {
 					String msg = String.format("Bad format for UCSC knownCanonicalPath.txt file: %s. "
-							+ "Got %d fields instead of the expected 6.", line, A.length);
+						+ "Got %d fields instead of the expected 6.", line, A.length);
 					throw new TranscriptParseException(msg);
 				}
 				final String primaryTranscriptID = A[5];
@@ -456,14 +461,14 @@ public class UCSCParser implements TranscriptParser {
 			}
 			br.close();
 			LOGGER.info("knownCanonicalPath contained ids for {} knownGenes (no ids available for {})", foundID,
-					notFoundID);
+				notFoundID);
 		} catch (FileNotFoundException fnfe) {
 			String s = String.format("Exception while parsing UCSC knownCanonicalPath file at \"%s\"\n%s",
-					knownCanonicalPath, fnfe.toString());
+				knownCanonicalPath, fnfe.toString());
 			throw new TranscriptParseException(s);
 		} catch (IOException e) {
 			String s = String.format("Exception while parsing UCSC knownCanonicalPath at \"%s\"\n%s",
-					knownCanonicalPath, e.toString());
+				knownCanonicalPath, e.toString());
 			throw new TranscriptParseException(s);
 		}
 	}
@@ -471,7 +476,7 @@ public class UCSCParser implements TranscriptParser {
 	/**
 	 * Input FASTA sequences from the UCSC hg19 file {@code knownGeneMrna.txt} Note that the UCSC sequences are all in
 	 * lower case, but we convert them here to all upper case letters to simplify processing in other places of this
-	 * program. The sequences are then added to the corresponding {@link TranscriptInfoBuilder} objects.
+	 * program. The sequences are then added to the corresponding {@link TranscriptModelBuilder} objects.
 	 */
 	private void parseKnownGeneMrna(String mRNAPath) throws TranscriptParseException {
 		try {
@@ -484,7 +489,7 @@ public class UCSCParser implements TranscriptParser {
 				String A[] = line.split("\t");
 				if (A.length != 2) {
 					String msg = String.format("Bad format for UCSC KnownToLocusLink.txt file: %s. "
-							+ "Got %d fields instead of the expected 2.", line, A.length);
+						+ "Got %d fields instead of the expected 2.", line, A.length);
 					throw new TranscriptParseException(msg);
 				}
 
@@ -506,28 +511,28 @@ public class UCSCParser implements TranscriptParser {
 			}
 			br.close();
 			LOGGER.info("Found {} transcript models from UCSC KnownGenes resource, {} of which had sequences",
-					foundSequence, (foundSequence - kgWithNoSequence));
+				foundSequence, (foundSequence - kgWithNoSequence));
 		} catch (FileNotFoundException fnfe) {
 			String s = String.format("Could not find file: %s\n%s", mRNAPath, fnfe.toString());
 			throw new TranscriptParseException(s);
 		} catch (IOException ioe) {
 			String s = String.format("Exception while parsing UCSC KnownGene FASTA file at \"%s\"\n%s", mRNAPath,
-					ioe.toString());
+				ioe.toString());
 			throw new TranscriptParseException(s);
 		}
 	}
 
 	/**
 	 * Input xref information for the known genes. This method parses the ucsc xref table to get the gene symbol that
-	 * corresponds to the ucsc kgID. The information is then added to the corresponding {@link TranscriptInfoBuilder}
+	 * corresponds to the ucsc kgID. The information is then added to the corresponding {@link TranscriptModelBuilder}
 	 * object.
-	 * <P>
+	 * <p>
 	 * Note that some of the fields are empty, which can cause a problem for Java's split function, which then conflates
 	 * neighboring fields. Therefore, we instead just count the number of tab signs to get to the 5th field.
-	 * <P>
+	 * <p>
 	 * uc001aca.2 NM_198317 Q6TDP4 KLH17_HUMAN KLHL17 NM_198317 NP_938073 Homo sapiens kelch-like 17 (Drosophila)
 	 * (KLHL17), mRNA.
-	 * <P>
+	 * <p>
 	 * The structure of the file is
 	 * <UL>
 	 * <LI>0: UCSC knownGene id, e.g., "uc001aca.2" (this is the key used to match entries to the knownGene.txt file)
@@ -557,7 +562,7 @@ public class UCSCParser implements TranscriptParser {
 				String A[] = line.split("\t");
 				if (A.length < 8) {
 					err = String.format("Error, malformed ucsc xref line: %s\nExpected 8 fields but got %d", line,
-							A.length);
+						A.length);
 					throw new TranscriptParseException(err);
 				}
 				String transcriptID = A[0];
@@ -581,7 +586,7 @@ public class UCSCParser implements TranscriptParser {
 			err = String.format("Could not find file: %s\n%s", xRefPath, fnfe.toString());
 		} catch (IOException e) {
 			err = String.format("Exception while parsing UCSC KnownGene xref file at \"%s\"\n%s", xRefPath,
-					e.toString());
+				e.toString());
 		} finally {
 			if (br != null)
 				try {
@@ -595,8 +600,7 @@ public class UCSCParser implements TranscriptParser {
 	}
 
 	/**
-	 * @param key
-	 *            name of the INI entry
+	 * @param key name of the INI entry
 	 * @return file name from INI <code>key</code.
 	 */
 	private String getINIFileName(String key) {
@@ -606,13 +610,10 @@ public class UCSCParser implements TranscriptParser {
 	/**
 	 * Open a file handle from a gzip-compressed or uncompressed file
 	 *
-	 * @param path
-	 *            Path to the file to be opened
-	 * @param isGzip
-	 *            whether or not the file is gzip-compressed
+	 * @param path   Path to the file to be opened
+	 * @param isGzip whether or not the file is gzip-compressed
 	 * @return Corresponding BufferedReader file handle.
-	 * @throws IOException
-	 *             on I/O errors
+	 * @throws IOException on I/O errors
 	 */
 	private static BufferedReader getBufferedReaderFromFilePath(String path, boolean isGzip) throws IOException {
 		FileInputStream fin = new FileInputStream(path);

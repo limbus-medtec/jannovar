@@ -1,5 +1,6 @@
 package de.charite.compbio.jannovar.hgvs.bridge;
 
+import de.charite.compbio.jannovar.annotation.InvalidGenomeVariant;
 import de.charite.compbio.jannovar.hgvs.SequenceType;
 import de.charite.compbio.jannovar.hgvs.nts.NucleotideRange;
 import de.charite.compbio.jannovar.hgvs.nts.NucleotideSeqDescription;
@@ -25,18 +26,15 @@ class NucleotideInversionToGenomeVariantTranslationImpl extends NucleotideChange
 	/**
 	 * Implementation of translation for {@link NucleotideInversion} objects
 	 *
-	 * @param tm
-	 *            {@link TranscriptModel} that <code>ntSub</code> is for
-	 * @param sequenceType
-	 *            {@link SequenceType} that <code>ntSub</code> is for
-	 * @param ntInv
-	 *            {@link NucleotideInversion} to convert
+	 * @param tm           {@link TranscriptModel} that <code>ntSub</code> is for
+	 * @param sequenceType {@link SequenceType} that <code>ntSub</code> is for
+	 * @param ntInv        {@link NucleotideInversion} to convert
 	 * @return {@link GenomeVariant} with the translation result, possibly annotated with warning messages
-	 * @throws CannotTranslateHGVSVariant
-	 *             in case of translation problems
+	 * @throws CannotTranslateHGVSVariant in case of translation problems
 	 */
-	public ResultWithWarnings<GenomeVariant> run(TranscriptModel tm, SequenceType sequenceType,
-			NucleotideInversion ntInv) throws CannotTranslateHGVSVariant {
+	public ResultWithWarnings<GenomeVariant> run(
+		TranscriptModel tm, SequenceType sequenceType, NucleotideInversion ntInv) throws
+		CannotTranslateHGVSVariant, InvalidGenomeVariant {
 		final NucleotideRange range = ntInv.getRange();
 		final NucleotideSeqDescription invertedNTDesc = ntInv.getSeq();
 		final GenomeInterval gItv = posConverter.translateNucleotideRange(tm, range, sequenceType);
@@ -47,9 +45,9 @@ class NucleotideInversionToGenomeVariantTranslationImpl extends NucleotideChange
 		if (invertedNTs == null) {
 			invertedNTs = getGenomeSeq(tm.getStrand(), gItv);
 			if (invertedNTDesc.length() != NucleotideSeqDescription.INVALID_NT_COUNT
-					&& invertedNTDesc.length() != invertedNTs.length())
+				&& invertedNTDesc.length() != invertedNTs.length())
 				warningMsg = "Invalid nucleotide count in " + ntInv.toHGVSString() + ", expected "
-						+ invertedNTs.length();
+					+ invertedNTs.length();
 		} else {
 			final String refSeq = getGenomeSeq(tm.getStrand(), gItv);
 			if (!refSeq.equals(invertedNTs))
@@ -58,7 +56,7 @@ class NucleotideInversionToGenomeVariantTranslationImpl extends NucleotideChange
 		}
 
 		final GenomeVariant result = new GenomeVariant(gItv.withStrand(tm.getStrand()).getGenomeBeginPos(),
-				invertedNTs, DNAUtils.reverseComplement(invertedNTs), tm.getStrand()).withStrand(Strand.FWD);
+			invertedNTs, DNAUtils.reverseComplement(invertedNTs), tm.getStrand()).withStrand(Strand.FWD);
 		if (warningMsg != null)
 			return ResultWithWarnings.construct(result, warningMsg);
 		else

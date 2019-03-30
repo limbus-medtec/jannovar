@@ -1,10 +1,8 @@
 package de.charite.compbio.jannovar.annotation;
 
-import java.util.Collection;
-
 import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableSortedSet;
-
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import de.charite.compbio.jannovar.Immutable;
 import de.charite.compbio.jannovar.hgvs.AminoAcidCode;
 import de.charite.compbio.jannovar.hgvs.nts.change.NucleotideChange;
@@ -14,11 +12,14 @@ import de.charite.compbio.jannovar.reference.Strand;
 import de.charite.compbio.jannovar.reference.TranscriptModel;
 import de.charite.compbio.jannovar.reference.VariantDescription;
 
+import java.util.Collection;
+import java.util.EnumSet;
+
 // TODO(holtgrem): Test me!
 
 /**
  * Collect the information for one variant's annotation.
- *
+ * <p>
  * Implements the {@link VariantDescription} interface for quicker access to the variant description information.
  *
  * @author <a href="mailto:Peter.Robinson@jax.org">Peter N Robinson</a>
@@ -27,14 +28,19 @@ import de.charite.compbio.jannovar.reference.VariantDescription;
 @Immutable
 public final class Annotation implements VariantDescription, Comparable<Annotation> {
 
+	private static final ImmutableSet<VariantEffect> EMPTY_VARIANT_EFFECTS = Sets.immutableEnumSet(
+		EnumSet.noneOf(VariantEffect.class));
+	private static final ImmutableSet<AnnotationMessage> EMPTY_ANNOTATION_MESSAGES = Sets.immutableEnumSet(
+		EnumSet.noneOf(AnnotationMessage.class));
+
 	/**
 	 * This line is added to the output of a VCF file annotated by Jannovar and describes the new field for the INFO
 	 * section entitled EFFECT, which decribes the effects of variants (splicing,missense,stoploss, etc).
 	 */
 	public static final String INFO_EFFECT = ""
-			+ "variant effect (UTR5,UTR3,intronic,splicing,missense,stoploss,stopgain,"
-			+ "startloss,duplication,frameshift-insertion,frameshift-deletion,non-frameshift-deletion,"
-			+ "non-frameshift-insertion,synonymous)";
+		+ "variant effect (UTR5,UTR3,intronic,splicing,missense,stoploss,stopgain,"
+		+ "startloss,duplication,frameshift-insertion,frameshift-deletion,non-frameshift-deletion,"
+		+ "non-frameshift-insertion,synonymous)";
 
 	/**
 	 * This line is added to the output of a VCF file annotated by Jannovar and describes the new field for the INFO
@@ -43,24 +49,36 @@ public final class Annotation implements VariantDescription, Comparable<Annotati
 	 */
 	public static final String INFO_HGVS = "HGVS Nomenclature";
 
-	/** The DESCRIPTION string to use in the VCF header for VCFVariantAnnotation objects */
+	/**
+	 * The DESCRIPTION string to use in the VCF header for VCFVariantAnnotation objects
+	 */
 	public static final String VCF_ANN_DESCRIPTION_STRING = "Functional annotations:'Allele|Annotation|"
-			+ "Annotation_Impact|Gene_Name|Gene_ID|Feature_Type|Feature_ID|Transcript_BioType|Rank|HGVS.c|HGVS.p|"
-			+ "cDNA.pos / cDNA.length|CDS.pos / CDS.length|AA.pos / AA.length|Distance|ERRORS / WARNINGS / INFO'";
+		+ "Annotation_Impact|Gene_Name|Gene_ID|Feature_Type|Feature_ID|Transcript_BioType|Rank|HGVS.c|HGVS.p|"
+		+ "cDNA.pos / cDNA.length|CDS.pos / CDS.length|AA.pos / AA.length|Distance|ERRORS / WARNINGS / INFO'";
 
-	/** the annotated {@link GenomeVariant} */
+	/**
+	 * the annotated {@link GenomeVariant}
+	 */
 	private final GenomeVariant change;
 
-	/** variant types, sorted by internal pathogenicity score */
-	private final ImmutableSortedSet<VariantEffect> effects;
+	/**
+	 * variant types, sorted by internal pathogenicity score
+	 */
+	private final ImmutableSet<VariantEffect> effects;
 
-	/** errors and warnings */
-	private final ImmutableSortedSet<AnnotationMessage> messages;
+	/**
+	 * errors and warnings
+	 */
+	private final ImmutableSet<AnnotationMessage> messages;
 
-	/** location of the annotation, <code>null</code> if not even nearby a {@link TranscriptModel} */
+	/**
+	 * location of the annotation, <code>null</code> if not even nearby a {@link TranscriptModel}
+	 */
 	private final AnnotationLocation annoLoc;
 
-	/** Chromosome/genome-level change, to be prepended with "g." */
+	/**
+	 * Chromosome/genome-level change, to be prepended with "g."
+	 */
 	private final NucleotideChange genomicNTChange;
 
 	/**
@@ -69,17 +87,20 @@ public final class Annotation implements VariantDescription, Comparable<Annotati
 	 */
 	private final NucleotideChange cdsNTChange;
 
-	/** change on the protein level */
+	/**
+	 * change on the protein level
+	 */
 	private final ProteinChange proteinChange;
 
-	/** the transcript, <code>null</code> for {@link VariantEffect#INTERGENIC} annotations */
+	/**
+	 * the transcript, <code>null</code> for {@link VariantEffect#INTERGENIC_VARIANT} annotations
+	 */
 	private final TranscriptModel transcript;
 
 	/**
 	 * Initialize object with messages only.
 	 *
-	 * @param messages
-	 *            {@link AnnotationMessage}s to use in this annotation
+	 * @param messages {@link AnnotationMessage}s to use in this annotation
 	 */
 	public Annotation(Collection<AnnotationMessage> messages) {
 		this(null, null, null, null, null, null, null, messages);
@@ -87,87 +108,76 @@ public final class Annotation implements VariantDescription, Comparable<Annotati
 
 	/**
 	 * Initialize the {@link Annotation} with the given values.
-	 *
+	 * <p>
 	 * The constructor will sort <code>effects</code> by pathogenicity before storing.
 	 *
-	 * @param change
-	 *            the annotated {@link GenomeVariant}
-	 * @param transcript
-	 *            transcript for this annotation
-	 * @param effects
-	 *            type of the variants
-	 * @param annoLoc
-	 *            location of the variant
-	 * @param genomicNTChange
-	 *            ghromosome/genome-level change, to be prepended with "g."
-	 * @param cdsNTChange
-	 *            CDS-level {@link NucleotideChange}
-	 * @param proteinChange
-	 *            predicted {@link ProteinChange}
+	 * @param change          the annotated {@link GenomeVariant}
+	 * @param transcript      transcript for this annotation
+	 * @param effects         type of the variants
+	 * @param annoLoc         location of the variant
+	 * @param genomicNTChange ghromosome/genome-level change, to be prepended with "g."
+	 * @param cdsNTChange     CDS-level {@link NucleotideChange}
+	 * @param proteinChange   predicted {@link ProteinChange}
 	 */
 	public Annotation(TranscriptModel transcript, GenomeVariant change, Collection<VariantEffect> effects,
-			AnnotationLocation annoLoc, NucleotideChange genomicNTChange, NucleotideChange cdsNTChange,
-			ProteinChange proteinChange) {
+					  AnnotationLocation annoLoc, NucleotideChange genomicNTChange, NucleotideChange cdsNTChange,
+					  ProteinChange proteinChange) {
 		this(transcript, change, effects, annoLoc, genomicNTChange, cdsNTChange, proteinChange,
-				ImmutableSortedSet.<AnnotationMessage> of());
+			EMPTY_ANNOTATION_MESSAGES);
 	}
 
 	/**
 	 * Initialize the {@link Annotation} with the given values.
-	 *
+	 * <p>
 	 * The constructor will sort <code>effects</code> by pathogenicity before storing.
 	 *
-	 * @param transcript
-	 *            transcript for this annotation
-	 * @param change
-	 *            the annotated {@link GenomeVariant}
-	 * @param varTypes
-	 *            type of the variants
-	 * @param annoLoc
-	 *            location of the variant
-	 * @param genomicNTChange
-	 *            ghromosome/genome-level change, to be prepended with "g."
-	 * @param cdsNTChange
-	 *            CDS-level {@link NucleotideChange}
-	 * @param proteinChange
-	 *            {@link ProteinChange} with a predicted protein change
-	 * @param messages
-	 *            {@link Collection} of {@link AnnotationMessage} objects
+	 * @param transcript      transcript for this annotation
+	 * @param change          the annotated {@link GenomeVariant}
+	 * @param varTypes        type of the variants
+	 * @param annoLoc         location of the variant
+	 * @param genomicNTChange ghromosome/genome-level change, to be prepended with "g."
+	 * @param cdsNTChange     CDS-level {@link NucleotideChange}
+	 * @param proteinChange   {@link ProteinChange} with a predicted protein change
+	 * @param messages        {@link Collection} of {@link AnnotationMessage} objects
 	 */
 	public Annotation(TranscriptModel transcript, GenomeVariant change, Collection<VariantEffect> varTypes,
-			AnnotationLocation annoLoc, NucleotideChange genomicNTChange, NucleotideChange cdsNTChange,
-			ProteinChange proteinChange, Collection<AnnotationMessage> messages) {
-		if (change != null)
-			change = change.withStrand(Strand.FWD); // enforce forward strand
-		this.change = change;
-		if (varTypes == null)
-			this.effects = ImmutableSortedSet.<VariantEffect> of();
-		else
-			this.effects = ImmutableSortedSet.copyOf(varTypes);
+					  AnnotationLocation annoLoc, NucleotideChange genomicNTChange, NucleotideChange cdsNTChange,
+					  ProteinChange proteinChange, Collection<AnnotationMessage> messages) {
+		// enforce forward strand
+		this.change = change == null ? null : change.withStrand(Strand.FWD);
+		this.effects = varTypes == null ? EMPTY_VARIANT_EFFECTS : Sets.immutableEnumSet(varTypes);
 		this.annoLoc = annoLoc;
 		this.genomicNTChange = genomicNTChange;
 		this.cdsNTChange = cdsNTChange;
 		this.proteinChange = proteinChange;
 		this.transcript = transcript;
-		this.messages = ImmutableSortedSet.copyOf(messages);
+		this.messages = Sets.immutableEnumSet(messages);
 	}
 
-	/** @return the annotated {@link GenomeVariant} */
+	/**
+	 * @return the annotated {@link GenomeVariant}
+	 */
 	public GenomeVariant getGenomeVariant() {
 		return change;
 	}
 
-	/** @return variant types, sorted by internal pathogenicity score */
-	public ImmutableSortedSet<VariantEffect> getEffects() {
+	/**
+	 * @return variant types, sorted by internal pathogenicity score
+	 */
+	public ImmutableSet<VariantEffect> getEffects() {
 		return effects;
 	}
 
-	/** @return errors and warnings */
-	public ImmutableSortedSet<AnnotationMessage> getMessages() {
+	/**
+	 * @return errors and warnings
+	 */
+	public ImmutableSet<AnnotationMessage> getMessages() {
 		return messages;
 	}
 
-	/** @return location of the annotation, <code>null</code> if not even nearby a {@link TranscriptModel} */
+	/**
+	 * @return location of the annotation, <code>null</code> if not even nearby a {@link TranscriptModel}
+	 */
 	public AnnotationLocation getAnnoLoc() {
 		return annoLoc;
 	}
@@ -188,7 +198,7 @@ public final class Annotation implements VariantDescription, Comparable<Annotati
 
 	/**
 	 * @return {@link NucleotideChange} with changes on the CDS level for coding transcripts and on the transcript level
-	 *         otherwise, null if the change does not affect any transcript
+	 * otherwise, null if the change does not affect any transcript
 	 */
 	public NucleotideChange getCDSNTChange() {
 		return cdsNTChange;
@@ -206,14 +216,15 @@ public final class Annotation implements VariantDescription, Comparable<Annotati
 			return "n." + cdsNTChange.toHGVSString();
 	}
 
-	/** @return predicted {@link ProteinChange} */
+	/**
+	 * @return predicted {@link ProteinChange}
+	 */
 	public ProteinChange getProteinChange() {
 		return proteinChange;
 	}
 
 	/**
-	 * @param code
-	 *            the protein change code to use.
+	 * @param code Three ore one letter amino acid code
 	 * @return protein change String, including the "p." prefix or the empty string if there is no annotation.
 	 */
 	public String getProteinChangeStr(AminoAcidCode code) {
@@ -225,7 +236,7 @@ public final class Annotation implements VariantDescription, Comparable<Annotati
 
 	/**
 	 * @return protein change String, including the "p." prefix or the empty string if there is no annotation, uses
-	 *         default amino acid code from {@link ProteinChange#toHGVSString()}.
+	 * default amino acid code from {@link ProteinChange#toHGVSString()}.
 	 */
 	public String getProteinChangeStr() {
 		if (proteinChange == null)
@@ -234,7 +245,9 @@ public final class Annotation implements VariantDescription, Comparable<Annotati
 			return "p." + proteinChange.toHGVSString();
 	}
 
-	/** @return the transcript, <code>null</code> for {@link VariantEffect#INTERGENIC_VARIANT} annotations */
+	/**
+	 * @return the transcript, <code>null</code> for {@link VariantEffect#INTERGENIC_VARIANT} annotations
+	 */
 	public TranscriptModel getTranscript() {
 		return transcript;
 	}
@@ -245,7 +258,7 @@ public final class Annotation implements VariantDescription, Comparable<Annotati
 	public PutativeImpact getPutativeImpact() {
 		if (effects.isEmpty())
 			return null;
-		VariantEffect worst = effects.first();
+		VariantEffect worst = effects.iterator().next();
 		for (VariantEffect vt : effects)
 			if (worst.getImpact().compareTo(vt.getImpact()) > 0)
 				worst = vt;
@@ -254,17 +267,18 @@ public final class Annotation implements VariantDescription, Comparable<Annotati
 
 	/**
 	 * Return the standardized VCF variant string for the given <code>ALT</code> allele.
-	 *
+	 * <p>
 	 * The <code>ALT</code> allele has to be given to this function since we trim away at least the first base of
 	 * <code>REF</code>/<code>ALT</code>.
-	 * 
-	 * @param alt
-	 *            alt allele
-	 * @param escape
-	 *            whether or not to escape the invalid VCF characters, e.g. <code>'='</code>.
+	 *
+	 * @param alt    alt allele
+	 * @param code   Three or one letter amino acid code
+	 * @param escape whether or not to escape the invalid VCF characters, e.g. <code>'='</code>.
 	 * @return VCF annotation string
 	 */
-	public String toVCFAnnoString(String alt, boolean escape) {
+	public String toVCFAnnoString(String alt, boolean escape, AminoAcidCode code) {
+		// 	public static final String VCF_SVANN_DESCRIPTION_STRING = "Functional SV Annotation:'Effects|Gene_Name|Gene_ID|" +
+		//		"Feature_Type|Feature_ID|Transcript_BioType|ERRORS / WARNINGS / INFO'";
 		VCFAnnotationData data = new VCFAnnotationData();
 		data.effects = effects;
 		data.impact = getPutativeImpact();
@@ -275,20 +289,20 @@ public final class Annotation implements VariantDescription, Comparable<Annotati
 		data.proteinChange = proteinChange;
 		data.messages = messages;
 		if (escape)
-			return data.toString(alt);
+			return data.toString(alt, code);
 		else
-			return data.toUnescapedString(alt);
+			return data.toUnescapedString(alt, code);
 	}
 
 	/**
-	 * Forward to {@link #toVCFAnnoString(String, boolean) toVCFAnnoString(alt, true)}.
-	 * 
-	 * @param alt
-	 *            alternateve allele
+	 * Forward to {@link #toVCFAnnoString(String, boolean, AminoAcidCode) toVCFAnnoString(alt, true, code)}.
+	 *
+	 * @param alt  alternateve allele
+	 * @param code Three ore one letter amino acid code
 	 * @return vcf annotation string
 	 */
-	public String toVCFAnnoString(String alt) {
-		return toVCFAnnoString(alt, true);
+	public String toVCFAnnoString(String alt, AminoAcidCode code) {
+		return toVCFAnnoString(alt, true, code);
 	}
 
 	/**
@@ -305,20 +319,18 @@ public final class Annotation implements VariantDescription, Comparable<Annotati
 
 	/**
 	 * Return the full annotation with the gene symbol.
-	 *
+	 * <p>
 	 * If this annotation does not have a symbol (e.g., for an intergenic annotation) then just return the annotation
 	 * string, e.g., <code>"KIAA1751:uc001aim.1:exon18:c.T2287C:p.X763Q"</code>.
-	 * 
-	 * @param code
-	 *            the amino acid code
 	 *
+	 * @param code Three ore one letter amino acid code
 	 * @return full annotation string or <code>null</code> if {@link #transcript} is <code>null</code>
 	 */
 	public String getSymbolAndAnnotation(AminoAcidCode code) {
 		if (transcript == null)
 			return null;
 		return Joiner.on(":").skipNulls().join(transcript.getGeneSymbol(), transcript.getAccession(),
-				getCDSNTChangeStr(), getProteinChangeStr(code));
+			getCDSNTChangeStr(), getProteinChangeStr(code));
 	}
 
 	/**
@@ -328,7 +340,7 @@ public final class Annotation implements VariantDescription, Comparable<Annotati
 	public VariantEffect getMostPathogenicVarType() {
 		if (effects.isEmpty())
 			return null;
-		return effects.first();
+		return effects.iterator().next();
 	}
 
 	@Override
@@ -382,8 +394,8 @@ public final class Annotation implements VariantDescription, Comparable<Annotati
 	@Override
 	public String toString() {
 		return "Annotation [change=" + change + ", effects=" + effects + ", cdsNTChange=" + cdsNTChange
-				+ ", proteinChange=" + (proteinChange == null ? "." : proteinChange.toHGVSString())
-				+ ", transcript.getAccession()=" + transcript.getAccession() + "]";
+			+ ", proteinChange=" + (proteinChange == null ? "." : proteinChange.toHGVSString())
+			+ ", transcript.getAccession()=" + transcript.getAccession() + "]";
 	}
 
 	@Override

@@ -1,14 +1,16 @@
 package de.charite.compbio.jannovar.reference;
 
+import de.charite.compbio.jannovar.annotation.InvalidGenomeVariant;
+import de.charite.compbio.jannovar.data.ReferenceDictionary;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import de.charite.compbio.jannovar.data.ReferenceDictionary;
-
 public class GenomeVariantTest {
 
-	/** this test uses this static hg19 reference dictionary */
+	/**
+	 * this test uses this static hg19 reference dictionary
+	 */
 	static final ReferenceDictionary refDict = HG19RefDictBuilder.build();
 
 	GenomePosition genomePosOneBasedForward;
@@ -31,7 +33,7 @@ public class GenomeVariantTest {
 	}
 
 	@Test
-	public void testConstructorChangeStrandZeroRefBasesOneBased() {
+	public void testConstructorChangeStrandZeroRefBasesOneBased() throws InvalidGenomeVariant {
 		GenomeVariant change = new GenomeVariant(this.genomePosOneBasedForward, "", "C", Strand.REV);
 		Assert.assertEquals(this.genomePosOneBasedForward.shifted(-1).withStrand(Strand.REV), change.getGenomePos());
 		Assert.assertEquals("", change.getRef());
@@ -39,7 +41,7 @@ public class GenomeVariantTest {
 	}
 
 	@Test
-	public void testConstructorChangeStrandOneRefBaseOneBased() {
+	public void testConstructorChangeStrandOneRefBaseOneBased() throws InvalidGenomeVariant {
 		GenomeVariant change = new GenomeVariant(this.genomePosOneBasedForward, "A", "C", Strand.REV);
 		Assert.assertEquals(this.genomePosOneBasedForward.shifted(0).withStrand(Strand.REV), change.getGenomePos());
 		Assert.assertEquals("T", change.getRef());
@@ -47,7 +49,7 @@ public class GenomeVariantTest {
 	}
 
 	@Test
-	public void testConstructorChangeStrandThreeRefBasesOneBased() {
+	public void testConstructorChangeStrandThreeRefBasesOneBased() throws InvalidGenomeVariant {
 		GenomeVariant change = new GenomeVariant(this.genomePosOneBasedForward, "AAA", "CCC", Strand.REV);
 		Assert.assertEquals(this.genomePosOneBasedForward.shifted(2).withStrand(Strand.REV), change.getGenomePos());
 		Assert.assertEquals("TTT", change.getRef());
@@ -55,7 +57,7 @@ public class GenomeVariantTest {
 	}
 
 	@Test
-	public void testConstructorChangeStrandZeroRefBasesZeroBased() {
+	public void testConstructorChangeStrandZeroRefBasesZeroBased() throws InvalidGenomeVariant {
 		GenomeVariant change = new GenomeVariant(this.genomePosZeroBasedForward, "", "C", Strand.REV);
 		Assert.assertEquals(this.genomePosZeroBasedForward.shifted(-1).withStrand(Strand.REV), change.getGenomePos());
 		Assert.assertEquals("", change.getRef());
@@ -63,7 +65,7 @@ public class GenomeVariantTest {
 	}
 
 	@Test
-	public void testConstructorChangeStrandOneRefBaseZeroBased() {
+	public void testConstructorChangeStrandOneRefBaseZeroBased() throws InvalidGenomeVariant {
 		GenomeVariant change = new GenomeVariant(this.genomePosZeroBasedForward, "A", "C", Strand.REV);
 		Assert.assertEquals(this.genomePosZeroBasedForward.shifted(0).withStrand(Strand.REV), change.getGenomePos());
 		Assert.assertEquals("T", change.getRef());
@@ -71,7 +73,7 @@ public class GenomeVariantTest {
 	}
 
 	@Test
-	public void testConstructorChangeStrandThreeRefBasesZeroBased() {
+	public void testConstructorChangeStrandThreeRefBasesZeroBased() throws InvalidGenomeVariant {
 		GenomeVariant change = new GenomeVariant(this.genomePosZeroBasedForward, "AAA", "CCC", Strand.REV);
 		Assert.assertEquals(this.genomePosZeroBasedForward.shifted(2).withStrand(Strand.REV), change.getGenomePos());
 		Assert.assertEquals("TTT", change.getRef());
@@ -82,7 +84,7 @@ public class GenomeVariantTest {
 	public void testConstructorStripLeading() {
 		GenomeVariant change = new GenomeVariant(this.genomePosOneBasedForward, "AAA", "AAC");
 		GenomePosition expectedPos = new GenomePosition(refDict, this.genomePosOneBasedForward.getStrand(),
-				this.genomePosOneBasedForward.getChr(), this.genomePosOneBasedForward.getPos() + 2, PositionType.ZERO_BASED);
+			this.genomePosOneBasedForward.getChr(), this.genomePosOneBasedForward.getPos() + 2, PositionType.ZERO_BASED);
 		Assert.assertEquals(expectedPos, change.getGenomePos());
 		Assert.assertEquals("A", change.getRef());
 		Assert.assertEquals("C", change.getAlt());
@@ -100,7 +102,7 @@ public class GenomeVariantTest {
 	public void testConstructorStripBoth() {
 		GenomeVariant change = new GenomeVariant(this.genomePosOneBasedForward, "GGACC", "GGCCC");
 		GenomePosition expectedPos = new GenomePosition(refDict, this.genomePosOneBasedForward.getStrand(),
-				this.genomePosOneBasedForward.getChr(), this.genomePosOneBasedForward.getPos() + 2, PositionType.ZERO_BASED);
+			this.genomePosOneBasedForward.getChr(), this.genomePosOneBasedForward.getPos() + 2, PositionType.ZERO_BASED);
 		Assert.assertEquals(expectedPos, change.getGenomePos());
 		Assert.assertEquals("A", change.getRef());
 		Assert.assertEquals("C", change.getAlt());
@@ -151,7 +153,7 @@ public class GenomeVariantTest {
 		GenomeVariant change = new GenomeVariant(this.genomePosOneBasedForward, "A", "C");
 		GenomeInterval genomeInterval = change.getGenomeInterval();
 		GenomeInterval expectedInterval = new GenomeInterval(refDict, Strand.FWD, 1, 123, 123, PositionType.ONE_BASED);
-		Assert.assertTrue(expectedInterval.equals(genomeInterval));
+		Assert.assertEquals(expectedInterval, genomeInterval);
 		Assert.assertEquals(expectedInterval, genomeInterval);
 	}
 
@@ -160,7 +162,7 @@ public class GenomeVariantTest {
 		GenomeVariant change = new GenomeVariant(this.genomePosZeroBasedReverse, "A", "C");
 		GenomeInterval genomeInterval = change.getGenomeInterval();
 		GenomeInterval expectedInterval = new GenomeInterval(refDict, Strand.REV, 1, 122, 123,
-				PositionType.ZERO_BASED);
+			PositionType.ZERO_BASED);
 		Assert.assertTrue(expectedInterval.equals(genomeInterval));
 		Assert.assertEquals(expectedInterval, genomeInterval);
 	}

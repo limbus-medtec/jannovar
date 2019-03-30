@@ -1,6 +1,151 @@
 # Jannovar Changelog
 
-## develop
+## v0.28
+
+### jannovar-cli
+
+* Bumping ENSEMBL versions for GRCh37 and GRCh38.
+* Fixing sources information for updated ENSEMBL downloads.
+* For ENSEMBL, use ENSEMBL-provided mapping from ENSG to HGNC ID for Entrez ID assignment.
+  This is necessary as Ensembl gene IDs turn out to be not so stable between hg37 and hg38 after all.
+  Case in point: `ENSG00000276141` vs. `ENSG00000187667`.
+* Adding `--gene-ids` argument to downloader for creating smaller databases (mostly for test purposes).
+* Adding SV support to jannovar-cli, includes tests.
+* Using ENSEMBL-provided mapping from ENSG to Entrez ID in the case HGNC mapping does not work.
+
+### jannovar-htsjdk
+
+* Adding SV support to jannovar-htsjdk
+* Bumping HTSJDK dependency to v2.18.2
+
+### jannovar-core
+
+* Changing upstream/downstream size to 5kbp.
+* Support for prioritizing RefSeq transcript on the PAR of chrX over those of chrY
+* Refactorizations to improve performace using `EnumSet`.
+* Extended `VariantEffect` for the effects of structural variants.
+  Removing documentation that the effect is not used in Jannovar for some now interpreted ones.
+  Also variant effect for non-coding variants is added using the [current VEP predictions](https://www.ensembl.org/info/genome/variation/prediction/predicted_data.html) as a template.
+* Prohibiting creating `GenomeVariant` with symbolic alleles.
+  Throwing new checked exception `InvalidGenomeVariant` case of error.
+* Fixing SO term ID for `VariantEffect.DISRUPTIVE_INFRAME_DELETION`
+* Correctly parsing transcript version for ENSEMBL when available (not available for b75/GRCh37).
+* Making transcript model building (for `download`) more memory efficient.
+
+## v0.27
+
+### jannovar-cli
+
+* Integrating support for thousand genomes VCF
+* Integrating thousand genomes/ExAc count limits into inheritance filter
+
+### jannovar-vardbs
+
+* Adding support for thousand genomes VCF
+
+### jannovar-htsjdk
+
+* Adding support for limiting genomes/ExAc counts into inheritance filter
+
+## v0.26
+
+### jannovar-cli
+
+* Making `OneParentGtFiltered` filter optional. The default setting to `false` (specify `--one-parent-gt-filtered-filters-affected` to enable).
+
+### jannovar-core
+
+* **Moving variants in non-coding transcripts after UTR variants.**
+
+### jannovar-hgvs
+
+* Fixing parser issue for nucleotide indels (#408).
+
+### jannovar-htsjdk
+
+* Obey the `options.escapeAnnField` parameter for escaping the variant effect in the `ANN` field.
+
+## v0.25
+
+### overall
+
+* Changing HTSJDK version to 2.14.3
+* Using the one letter amino acid code in HGVS representation as default (changes in core, hgvs, htsjdk and cli). Now the cli option `--3-letter-amino-acids` works as expected.
+
+### jannovar-cli
+
+* Support for [RefSeq GRCh37.p13 interim release](https://www.ncbi.nlm.nih.gov/books/NBK430989/#_news_02-14-2017-interim-annotation-update-human_)
+* Support of new RefSeq headers
+* Using RefSeq GRCh38.p12 annotation instead of GRCh38.p7
+
+### jannovar-vardbs
+
+* Replacing whitespace with string when annotating from TSV file.
+
+### jannovar-htsjdk
+
+* Fixing bug in GenomeRegionSequenceExtraction. Error reports always sequences from the first contig in the referebnce file and not the requested contig. Affects only the cli command `hgvs-to-vcf`.
+
+## v0.24
+
+### jannovar-cli
+
+* Fixing annotation with Polyphen prediction (data type)
+
+### overall
+
+* Changing HTSJDK version to 2.14.0
+* Codestyle improvements
+
+### jannovar-core
+
+* Fixing mendelian "bug" #393 (has no affect because check was not necessary)
+* New inheritance mode: mitochondrial
+* Bugfix ProgressBar (doPrint was always true)
+
+### jannovar-vardbs
+
+* Fixed problem with interpretation of Clinvar annotation origin.
+* Clinvar `BEST_AC` and `BEST_AF` are now named `AC_POPMAX` and `AF_POPMAX` to be consitent with gnomAD
+
+## v0.23
+
+### overall
+
+* Changing Guava version to 0.22
+* Changing slf4j version to 1.7.24
+* Changing log4j version to 2.8.2
+
+### jannovar-cli
+
+* Adding experimental support for annotating with VCF files.
+* Adding experimental support for annotating with tabix-indexed TSV files and dbNSFP.
+* Integrating the advanced pedigree-based filters (useful for filtration to de novo variants).
+* Making it possible to override database INI settings using user-specified INI files.
+
+### jannovar-core
+
+* Fixing stop loss annotation (#351).
+* Finishing renaming of TranscriptInfo to TranscriptModel (#348).
+* Upstream and downstream variant were considered "not off exome". They now are.
+* Adding mitochondrial filtering function (#362).
+
+### jannovar-filter
+
+* Adding code for performing more advanced filtration/annotation filtering to de novo variants.
+* Improving documentation of `MaxFreqAr` and `MaxFreqAd` in header.
+
+
+### jannovar-vardbs
+
+* Adding experimental support for annotating with VCF files
+* Adding experimental support for annotating with tabix-indexed TSV files and dbNSFP
+
+### jannovar-filter
+
+* Fixing bug that ignored variant filters for recessive annotation
+
+## v0.22
 
 ### jannovar-htsjdk
 

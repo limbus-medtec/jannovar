@@ -1,37 +1,33 @@
 package de.charite.compbio.jannovar.mendel.impl;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-
-import de.charite.compbio.jannovar.mendel.ChromosomeType;
-import de.charite.compbio.jannovar.mendel.Genotype;
-import de.charite.compbio.jannovar.mendel.GenotypeCalls;
-import de.charite.compbio.jannovar.mendel.IncompatiblePedigreeException;
-import de.charite.compbio.jannovar.mendel.MendelianInheritanceChecker;
+import de.charite.compbio.jannovar.mendel.*;
 import de.charite.compbio.jannovar.pedigree.Disease;
 import de.charite.compbio.jannovar.pedigree.Pedigree;
 import de.charite.compbio.jannovar.pedigree.Person;
 import de.charite.compbio.jannovar.pedigree.Sex;
 
+import java.util.Collection;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 /**
- * Helper class for checking a {@link GenotypeCalls} for compatibility with a {@link Pedigree} and AR homozygous mode
+ * Helper class for checking a {@link GenotypeCalls} for compatibility with a
+ * {@link Pedigree} and XR homozygous mode
  *
  * <h2>Compatibility Check</h2>
- *
+ * <p>
  * In the case of a single individual, we require hom. alt.
- *
- * In the case of multiple individuals, we require that the affects are compatible, that the unaffected parents of hom.
- * alt. unaffected females are not are not hom. ref., and that all unaffected individuals are not hom. alt. The affected
- * individuals are compatible if no affected individual is hom. ref. or het. and there is at least one affected
- * individual that is hom. alt.
+ * <p>
+ * In the case of multiple individuals, we require that the affects are
+ * compatible, that the unaffected parents of hom. alt. unaffected females are
+ * not are not hom. ref., and that all unaffected individuals are not hom. alt.
+ * The affected individuals are compatible if no affected individual is hom.
+ * ref. or het. and there is at least one affected individual that is hom. alt.
  *
  * @author <a href="mailto:manuel.holtgrewe@charite.de">Manuel Holtgrewe</a>
- * @author <a href="mailto:max.schubach@charite.de">Max Schubach</a>
+ * @author <a href="mailto:max.schubach@bihealth.de">Max Schubach</a>
  * @author <a href="mailto:Peter.Robinson@jax.org">Peter N Robinson</a>
  * @version 0.15-SNAPSHOT
  */
@@ -43,10 +39,10 @@ public class MendelianCheckerXRHom extends AbstractMendelianChecker {
 
 	@Override
 	public ImmutableList<GenotypeCalls> filterCompatibleRecords(Collection<GenotypeCalls> calls)
-			throws IncompatiblePedigreeException {
+		throws IncompatiblePedigreeException {
 		// Filter to calls on X chromosome
 		Stream<GenotypeCalls> xCalls = calls.stream()
-				.filter(call -> call.getChromType() == ChromosomeType.X_CHROMOSOMAL);
+			.filter(call -> call.getChromType() == ChromosomeType.X_CHROMOSOMAL);
 
 		// Filter to calls compatible with AD inheritance
 		Stream<GenotypeCalls> compatibleCalls;
@@ -58,8 +54,8 @@ public class MendelianCheckerXRHom extends AbstractMendelianChecker {
 	}
 
 	/**
-	 * @return whether <code>calls</code> is compatible with AR homozygous inheritance in the case of a single
-	 *         individual in the pedigree
+	 * @return whether <code>calls</code> is compatible with XR homozygous
+	 * inheritance in the case of a single individual in the pedigree
 	 */
 	private boolean isCompatibleSingleton(GenotypeCalls calls) {
 		if (calls.getNSamples() == 0)
@@ -73,8 +69,8 @@ public class MendelianCheckerXRHom extends AbstractMendelianChecker {
 	}
 
 	/**
-	 * @return whether <code>calls</code> is compatible with AR homozygous inheritance in the case of multiple
-	 *         individuals in the pedigree
+	 * @return whether <code>calls</code> is compatible with XR homozygous
+	 * inheritance in the case of multiple individuals in the pedigree
 	 */
 	private boolean isCompatibleFamily(GenotypeCalls calls) {
 		return (affectedsAreCompatible(calls) && parentsAreCompatible(calls) && unaffectedsAreCompatible(calls));
@@ -88,10 +84,12 @@ public class MendelianCheckerXRHom extends AbstractMendelianChecker {
 			final Genotype gt = calls.getGenotypeForSample(name);
 			if (p.getDisease() == Disease.AFFECTED) {
 				if (gt.isHomRef()) {
-					// Cannot be disease-causing mutation, an affected male or female does not have it
+					// Cannot be disease-causing mutation, an affected male or female does not have
+					// it
 					return false;
 				} else if (p.getSex() == Sex.FEMALE && gt.isHet()) {
-					// Cannot be disease-causing mutation if a female have it heterozygous. For a male we think it is a
+					// Cannot be disease-causing mutation if a female have it heterozygous. For a
+					// male we think it is a
 					// misscall (alt instead of het)
 					return false;
 				} else if (gt.isHomAlt() || (p.getSex() != Sex.FEMALE && gt.isHet())) {
@@ -103,9 +101,20 @@ public class MendelianCheckerXRHom extends AbstractMendelianChecker {
 		return (numVar > 0);
 	}
 
+	/**
+	 * We only have to look for the parents of the female affected for inherited
+	 * variants. Here the variant must be inherited from both!
+	 * <p>
+	 * For the parents of male affected it is really special. Because it can be
+	 * inherited from the mother or the father! Not from both. Because we do not
+	 * know the specific parents of one affected (only all of them) at this part we
+	 * have to skip the parents of male affected.
+	 *
+	 * @param calls
+	 * @return
+	 */
 	private boolean parentsAreCompatible(GenotypeCalls calls) {
 		final ImmutableSet<String> femaleParentNames = queryDecorator.getAffectedFemaleParentNames();
-		final ImmutableSet<String> maleParentNames = queryDecorator.getAffectedFemaleParentNames();
 
 		for (Person p : pedigree.getMembers()) {
 			final Genotype gt = calls.getGenotypeForSample(p.getName());
@@ -115,16 +124,8 @@ public class MendelianCheckerXRHom extends AbstractMendelianChecker {
 					return false;
 				}
 				if (p.getSex() == Sex.FEMALE && (gt.isHomAlt() || gt.isHomRef())) {
-					// Cannot be disease-causing mutation if mother of patient is homozygous or not the carrier
-					return false;
-				}
-			} else if (maleParentNames.contains(p.getName())) {
-				if (p.getSex() == Sex.MALE && p.getDisease() == Disease.UNAFFECTED && (gt.isHomAlt() || gt.isHet())) {
-					// Unaffected male can not me heterozygos (wrong call) or hemizygous
-					return false;
-				}
-				if (p.getSex() == Sex.FEMALE && gt.isHomAlt()) {
-					// Cannot be disease-causing mutation if mother of patient is homozygous
+					// Cannot be disease-causing mutation if mother of patient is homozygous or not
+					// the carrier
 					return false;
 				}
 			}
@@ -139,7 +140,8 @@ public class MendelianCheckerXRHom extends AbstractMendelianChecker {
 		for (Person p : pedigree.getMembers()) {
 			if (unaffectedNames.contains(p.getName())) {
 				final Genotype gt = calls.getGenotypeForSample(p.getName());
-				// Strict handling. Males cannot be called heterozygous (will be seen as a homozygous mutation)
+				// Strict handling. Males cannot be called heterozygous (will be seen as a
+				// homozygous mutation)
 				if (p.isMale() && (gt.isHet() || gt.isHomAlt()))
 					return false;
 				else if (gt.isHomAlt())

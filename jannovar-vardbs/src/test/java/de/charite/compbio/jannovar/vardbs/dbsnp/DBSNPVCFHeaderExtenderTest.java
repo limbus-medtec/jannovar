@@ -1,12 +1,11 @@
 package de.charite.compbio.jannovar.vardbs.dbsnp;
 
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-
 import de.charite.compbio.jannovar.vardbs.base.DBAnnotationOptions;
 import de.charite.compbio.jannovar.vardbs.base.JannovarVarDBException;
 import htsjdk.variant.vcf.VCFHeader;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
 
 public class DBSNPVCFHeaderExtenderTest {
 
@@ -28,6 +27,7 @@ public class DBSNPVCFHeaderExtenderTest {
 		DBAnnotationOptions options = DBAnnotationOptions.createDefaults();
 		options.setReportOverlapping(true);
 		options.setReportOverlappingAsMatching(false);
+		options.setIdentifierPrefix("DBSNP_");
 
 		new DBSNPVCFHeaderExtender(options).addHeaders(header);
 

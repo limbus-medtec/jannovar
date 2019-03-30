@@ -1,16 +1,14 @@
 package de.charite.compbio.jannovar.datasource;
 
+import com.google.common.collect.ImmutableList;
+import org.ini4j.Ini;
+import org.ini4j.Profile.Section;
+
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
-
-import org.ini4j.Ini;
-import org.ini4j.InvalidFileFormatException;
-import org.ini4j.Profile.Section;
-
-import com.google.common.collect.ImmutableList;
 
 /**
  * Factory class that allows the construction of {@link DataSource} objects as configured in INI files.
@@ -19,23 +17,24 @@ import com.google.common.collect.ImmutableList;
  */
 final public class DataSourceFactory {
 
-	/** {@link DatasourceOptions} object for proxy settings */
+	/**
+	 * {@link DatasourceOptions} object for proxy settings
+	 */
 	private final DatasourceOptions options;
-	/** {@link Ini} object to use for loading data */
+	/**
+	 * {@link Ini} object to use for loading data
+	 */
 	private final ImmutableList<Ini> inis;
 
 	/**
-	 * @param options
-	 *            for proxy configuration
-	 * @param iniFilePaths
-	 *            path to INI file to load the data source config from
-	 * @throws InvalidDataSourceException
-	 *             on problems with the data source config file
+	 * @param options      for proxy configuration
+	 * @param iniFilePaths path to INI file to load the data source config from
+	 * @throws InvalidDataSourceException on problems with the data source config file
 	 */
 	public DataSourceFactory(DatasourceOptions options, List<String> iniFilePaths) throws InvalidDataSourceException {
 		this.options = options;
 
-		ImmutableList.Builder<Ini> inisBuilder = new ImmutableList.Builder<Ini>();
+		ImmutableList.Builder<Ini> inisBuilder = new ImmutableList.Builder<>();
 		for (String iniFilePath : iniFilePaths) {
 			InputStream is;
 			final String BUNDLE_PREFIX = "bundle://";
@@ -49,14 +48,12 @@ final public class DataSourceFactory {
 					is = new FileInputStream(iniFilePath);
 				} catch (FileNotFoundException e) {
 					throw new InvalidDataSourceException(
-							"Problem opening data source file " + iniFilePath + ": " + e.getMessage());
+						"Problem opening data source file " + iniFilePath + ": " + e.getMessage());
 				}
 			}
 			Ini ini = new Ini();
 			try {
 				ini.load(is);
-			} catch (InvalidFileFormatException e) {
-				throw new InvalidDataSourceException("Problem loading data source file.", e);
 			} catch (IOException e) {
 				throw new InvalidDataSourceException("Problem loading data source file.", e);
 			}
@@ -69,7 +66,7 @@ final public class DataSourceFactory {
 	 * @return list of data source names
 	 */
 	public ImmutableList<String> getNames() {
-		ImmutableList.Builder<String> builder = new ImmutableList.Builder<String>();
+		ImmutableList.Builder<String> builder = new ImmutableList.Builder<>();
 		for (Ini ini : inis)
 			for (String name : ini.keySet())
 				if (ini.get(name).get("type") != null)
@@ -80,11 +77,9 @@ final public class DataSourceFactory {
 	/**
 	 * Construct {@link DataSource}
 	 *
-	 * @param name
-	 *            key of the INI section to load the data source from
+	 * @param name key of the INI section to load the data source from
 	 * @return {@link DataSource} with data from the file
-	 * @throws InvalidDataSourceException
-	 *             if <code>name</code> could not be found in any data source config file
+	 * @throws InvalidDataSourceException if <code>name</code> could not be found in any data source config file
 	 */
 	public DataSource getDataSource(String name) throws InvalidDataSourceException {
 		for (Ini ini : inis) {

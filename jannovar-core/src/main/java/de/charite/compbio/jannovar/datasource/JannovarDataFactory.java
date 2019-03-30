@@ -1,21 +1,6 @@
 package de.charite.compbio.jannovar.datasource;
 
-import java.io.BufferedInputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.util.zip.GZIPInputStream;
-
-import org.ini4j.Profile.Section;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.google.common.collect.ImmutableList;
-
 import de.charite.compbio.jannovar.data.JannovarData;
 import de.charite.compbio.jannovar.data.ReferenceDictionary;
 import de.charite.compbio.jannovar.datasource.FileDownloader.ProxyOptions;
@@ -23,6 +8,15 @@ import de.charite.compbio.jannovar.impl.parse.ReferenceDictParser;
 import de.charite.compbio.jannovar.impl.parse.TranscriptParseException;
 import de.charite.compbio.jannovar.impl.util.PathUtil;
 import de.charite.compbio.jannovar.reference.TranscriptModel;
+import org.ini4j.Profile.Section;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.*;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.List;
+import java.util.zip.GZIPInputStream;
 
 /**
  * Interface for data factories, allowing to create {@link JannovarData} objects from {@link DataSource}s.
@@ -31,25 +25,30 @@ import de.charite.compbio.jannovar.reference.TranscriptModel;
  */
 public abstract class JannovarDataFactory {
 
-	/** the logger object to use */
+	/**
+	 * the logger object to use
+	 */
 	private static final Logger LOGGER = LoggerFactory.getLogger(JannovarDataFactory.class);
 
-	/** the {@link DatasourceOptions} to use for proxy settings */
+	/**
+	 * the {@link DatasourceOptions} to use for proxy settings
+	 */
 	protected final DatasourceOptions options;
-	/** the {@link DataSource} to use */
+	/**
+	 * the {@link DataSource} to use
+	 */
 	protected final DataSource dataSource;
-	/** configuration section from INI file */
+	/**
+	 * configuration section from INI file
+	 */
 	protected final Section iniSection;
 
 	/**
 	 * Construct the factory with the given {@link DataSource}.
 	 *
-	 * @param options
-	 *            configuration for proxy settings
-	 * @param dataSource
-	 *            the data source to use.
-	 * @param iniSection
-	 *            {@link Section} with configuration from INI file
+	 * @param options    configuration for proxy settings
+	 * @param dataSource the data source to use.
+	 * @param iniSection {@link Section} with configuration from INI file
 	 */
 	public JannovarDataFactory(DatasourceOptions options, DataSource dataSource, Section iniSection) {
 		this.options = options;
@@ -58,20 +57,16 @@ public abstract class JannovarDataFactory {
 	}
 
 	/**
-	 * @param downloadDir
-	 *            path of directory to download files to
-	 * @param printProgressBars
-	 *            whether or not to print progress bars
+	 * @param downloadDir       path of directory to download files to
+	 * @param printProgressBars whether or not to print progress bars
+	 * @param geneIdentifiers   List of gene identifiers to limit to
 	 * @return {@link JannovarData} object for the factory's state.
-	 * @throws InvalidDataSourceException
-	 *             on problems with the data source or data source file
-	 * @throws TranscriptParseException
-	 *             on problems with processing the transcript and reference dictionary data
-	 * @throws FileDownloadException
-	 *             on problems while downloading files.
+	 * @throws InvalidDataSourceException on problems with the data source or data source file
+	 * @throws TranscriptParseException   on problems with processing the transcript and reference dictionary data
+	 * @throws FileDownloadException      on problems while downloading files.
 	 */
-	public final JannovarData build(String downloadDir, boolean printProgressBars)
-			throws InvalidDataSourceException, TranscriptParseException, FileDownloadException {
+	public final JannovarData build(String downloadDir, boolean printProgressBars, List<String> geneIdentifiers)
+		throws InvalidDataSourceException, TranscriptParseException, FileDownloadException {
 		String targetDir = PathUtil.join(downloadDir, dataSource.getName());
 
 		FileDownloader downloader = new FileDownloader(buildOptions(printProgressBars));
@@ -88,7 +83,7 @@ public abstract class JannovarDataFactory {
 
 				if (dest.getName().endsWith(".gz")) {
 					checkGZ(dest);
-					LOGGER.info("Downloaded file {} looks like a valid gzip'ed file", new Object[] { dest.getName() });
+					LOGGER.info("Downloaded file {} looks like a valid gzip'ed file", new Object[]{dest.getName()});
 				}
 			}
 		} catch (MalformedURLException e) {
@@ -98,16 +93,16 @@ public abstract class JannovarDataFactory {
 		// Parse files for building ReferenceDictionary objects.
 		LOGGER.info("Building ReferenceDictionary...");
 		final String chromInfoPath = PathUtil.join(downloadDir, dataSource.getName(),
-				dataSource.getFileName("chromInfo"));
+			dataSource.getFileName("chromInfo"));
 		final String chrToAccessionsPath = PathUtil.join(downloadDir, dataSource.getName(),
-				dataSource.getFileName("chrToAccessions"));
+			dataSource.getFileName("chrToAccessions"));
 		ReferenceDictParser dictParser = new ReferenceDictParser(chromInfoPath, chrToAccessionsPath, iniSection);
 		ReferenceDictionary refDict = dictParser.parse();
 		// refDict.print(System.err);
 
 		// Parse transcript files.
 		LOGGER.info("Parsing transcripts...");
-		ImmutableList<TranscriptModel> transcripts = parseTranscripts(refDict, targetDir);
+		ImmutableList<TranscriptModel> transcripts = parseTranscripts(refDict, targetDir, geneIdentifiers);
 
 		return new JannovarData(refDict, transcripts);
 	}
@@ -115,8 +110,7 @@ public abstract class JannovarDataFactory {
 	/**
 	 * Check whether the given file is a valid gzip file.
 	 *
-	 * @throws FileDownloadException
-	 *             in case of problems with downloaded gzip file
+	 * @throws FileDownloadException in case of problems with downloaded gzip file
 	 */
 	private void checkGZ(File dest) throws FileDownloadException {
 		try (InputStream in = new BufferedInputStream(new FileInputStream(dest.getAbsolutePath()))) {
@@ -126,13 +120,13 @@ public abstract class JannovarDataFactory {
 			in.reset();
 			if (magic != GZIPInputStream.GZIP_MAGIC) {
 				throw new FileDownloadException("The downloaded file " + dest.getAbsolutePath()
-						+ " is not a valid gzip file. " + "Is your proxy configuration correct?");
+					+ " is not a valid gzip file. " + "Is your proxy configuration correct?");
 			}
 		} catch (FileNotFoundException e) {
 			throw new FileDownloadException("File " + dest.getAbsolutePath() + " not found. Did the download fail?", e);
 		} catch (IOException e) {
 			throw new FileDownloadException(
-					"Reading from " + dest.getAbsolutePath() + " failed. Did the download fail?", e);
+				"Reading from " + dest.getAbsolutePath() + " failed. Did the download fail?", e);
 		}
 	}
 
@@ -167,15 +161,14 @@ public abstract class JannovarDataFactory {
 	}
 
 	/**
-	 * @param refDict
-	 *            {@link ReferenceDictionary} to use
-	 * @param targetDir
-	 *            path where the downloaded files are
-	 * @return list of {@link TranscriptModel} objects that are parsed from the files in <code>targetDir</code>
-	 * @throws TranscriptParseException
-	 *             on problems with parsing the transcript database
+	 * @param refDict         {@link ReferenceDictionary} to use
+	 * @param targetDir       path where the downloaded files are
+	 * @param geneIdentifiers List of gene identifiers to extract data for
+	 * @return list of {@link TranscriptModel} objects that are parsed from the files in
+	 * <code>targetDir</code>
+	 * @throws TranscriptParseException on problems with parsing the transcript database
 	 */
-	protected abstract ImmutableList<TranscriptModel> parseTranscripts(ReferenceDictionary refDict, String targetDir)
-			throws TranscriptParseException;
+	protected abstract ImmutableList<TranscriptModel> parseTranscripts(ReferenceDictionary refDict, String targetDir,
+																	   List<String> geneIdentifiers) throws TranscriptParseException;
 
 }

@@ -2,22 +2,22 @@ package de.charite.compbio.jannovar.reference;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ComparisonChain;
-
 import de.charite.compbio.jannovar.Immutable;
+import de.charite.compbio.jannovar.UncheckedJannovarException;
 import de.charite.compbio.jannovar.annotation.Annotation;
+import de.charite.compbio.jannovar.annotation.InvalidGenomeVariant;
 import de.charite.compbio.jannovar.impl.util.DNAUtils;
 
 // TODO(holtgrewe): We only want genome changes on the forward strand, make sure this does not lead to problems downstream.
-// TODO(holtgrewe): Add support for symbolic alleles in all the members.
 
 /**
  * Denote a change with a "REF" and an "ALT" string using genome coordinates.
- *
+ * <p>
  * GenomeChange objects are immutable, the members are automatically adjusted for the longest common suffix and prefix
  * in REF and ALT.
- *
- * Symbolic alleles, as in the VCF standard, are also possible, but methods like {@link #getType} etc. do not return
- * sensible results.
+ * <p>
+ * Symbolic-ness of alleles can be checked with {@link #wouldBeSymbolicAllele(String)} but symbolic alleles are not
+ * supported by {@code GenomeVariant}.  Rather, use {@link SVGenomeVariant} for this.
  *
  * @author <a href="mailto:manuel.holtgrewe@charite.de">Manuel Holtgrewe</a>
  * @author <a href="mailto:max.schubach@charite.de">Max Schubach</a>
@@ -26,16 +26,22 @@ import de.charite.compbio.jannovar.impl.util.DNAUtils;
 @Immutable
 public final class GenomeVariant implements VariantDescription {
 
-	/** position of the change */
+	/**
+	 * position of the change
+	 */
 	private final GenomePosition pos;
-	/** nucleic acid reference string */
+	/**
+	 * nucleic acid reference string
+	 */
 	private final String ref;
-	/** nucleic acid alternative string */
+	/**
+	 * nucleic acid alternative string
+	 */
 	private final String alt;
 
 	/**
 	 * Construct object given the position, reference, and alternative nucleic acid string.
-	 *
+	 * <p>
 	 * On construction, pos, ref, and alt are automatically adjusted to the right/incremented by the length of the
 	 * longest common prefix and suffix of ref and alt.
 	 */
@@ -49,28 +55,22 @@ public final class GenomeVariant implements VariantDescription {
 
 		VariantDataCorrector corr = new VariantDataCorrector(ref, alt, pos.getPos());
 		this.pos = new GenomePosition(pos.getRefDict(), pos.getStrand(), pos.getChr(), corr.position,
-				PositionType.ZERO_BASED);
+			PositionType.ZERO_BASED);
 		this.ref = corr.ref;
 		this.alt = corr.alt;
 	}
 
 	/**
 	 * Construct object given the position, reference, alternative nucleic acid string, and strand.
-	 *
+	 * <p>
 	 * On construction, pos, ref, and alt are automatically adjusted to the right/incremented by the length of the
 	 * longest common prefix and suffix of ref and alt. Further, the position is adjusted to the given strand.
+	 *
+	 * @throws InvalidGenomeVariant if {@code ref} and {@code alt} describe symbolic or non-ACGT alleles.
 	 */
-	public GenomeVariant(GenomePosition pos, String ref, String alt, Strand strand) {
+	public GenomeVariant(GenomePosition pos, String ref, String alt, Strand strand) throws InvalidGenomeVariant {
 		if (wouldBeSymbolicAllele(ref) || wouldBeSymbolicAllele(alt)) {
-			this.pos = pos.withStrand(strand);
-			if (strand == pos.getStrand()) {
-				this.ref = ref;
-				this.alt = alt;
-			} else {
-				this.ref = DNAUtils.reverseComplement(ref);
-				this.alt = DNAUtils.reverseComplement(alt);
-			}
-			return;
+			throw new InvalidGenomeVariant("Symbolic alleles are not supported by GenomeVariant");
 		}
 
 		// Correct variant data.
@@ -90,27 +90,22 @@ public final class GenomeVariant implements VariantDescription {
 			delta = ref.length() - 1;
 
 		this.pos = new GenomePosition(pos.getRefDict(), pos.getStrand(), pos.getChr(), corr.position,
-				PositionType.ZERO_BASED).shifted(delta).withStrand(strand);
+			PositionType.ZERO_BASED).shifted(delta).withStrand(strand);
 	}
 
 	/**
-	 * @return <code>true</code> if this is a symbolic allele, as described
-	 */
-	public boolean isSymbolic() {
-		return (wouldBeSymbolicAllele(ref) || wouldBeSymbolicAllele(alt));
-	}
-
-	/**
+	 * Check whether the given allele string would be interpreted as a symbolic one.
+	 *
 	 * @return <code>true</code> if the given <code>allele</code> string describes a symbolic allele (events not
-	 *         described by replacement of bases, e.g. break-ends or duplications that are described in one line).
+	 * described by replacement of bases, e.g. break-ends or duplications that are described in one line).
 	 */
-	private static boolean wouldBeSymbolicAllele(String allele) {
+	public static boolean wouldBeSymbolicAllele(String allele) {
 		if (allele.length() <= 1)
 			return false;
-		return (allele.charAt(0) == '<' || allele.charAt(allele.length() - 1) == '>') || // symbolic or large insertion
-				(allele.charAt(0) == '.' || allele.charAt(allele.length() - 1) == '.') || // single breakend
-				(allele.contains("[") || allele.contains("]")); // mated
-																// breakend
+		// The outer terms are: (i) symbolic or large insertion, (ii) single breakend, (iii) mated breakend
+		return (allele.charAt(0) == '<' || allele.charAt(allele.length() - 1) == '>') ||
+			(allele.charAt(0) == '.' || allele.charAt(allele.length() - 1) == '.') || // single breakend
+			(allele.contains("[") || allele.contains("]"));
 	}
 
 	@Override
@@ -138,27 +133,6 @@ public final class GenomeVariant implements VariantDescription {
 	}
 
 	/**
-	 * Construct object and enforce strand.
-	 */
-	public GenomeVariant(GenomeVariant other, Strand strand) {
-		if (strand == other.pos.getStrand()) {
-			this.ref = other.ref;
-			this.alt = other.alt;
-		} else {
-			this.ref = DNAUtils.reverseComplement(other.ref);
-			this.alt = DNAUtils.reverseComplement(other.alt);
-		}
-
-		// Get position as 0-based position.
-
-		if (strand == other.pos.getStrand()) {
-			this.pos = other.pos;
-		} else {
-			this.pos = other.pos.shifted(this.ref.length() - 1).withStrand(strand);
-		}
-	}
-
-	/**
 	 * @return numeric ID of chromosome this change is on
 	 */
 	@Override
@@ -170,9 +144,6 @@ public final class GenomeVariant implements VariantDescription {
 	 * @return interval of the genome change
 	 */
 	public GenomeInterval getGenomeInterval() {
-		if (isSymbolic())
-			return new GenomeInterval(pos, 1);
-
 		return new GenomeInterval(pos, ref.length());
 	}
 
@@ -180,7 +151,20 @@ public final class GenomeVariant implements VariantDescription {
 	 * @return the GenomeChange on the given strand
 	 */
 	public GenomeVariant withStrand(Strand strand) {
-		return new GenomeVariant(this, strand);
+		if (pos.getStrand() == strand) {
+			return this;
+		}
+
+		String oppositeRef = DNAUtils.reverseComplement(ref);
+		String oppositeAlt = DNAUtils.reverseComplement(alt);
+
+		// Get position as 0-based position.
+		GenomePosition oppositePos = pos.shifted(this.ref.length() - 1).withStrand(strand);
+		try {
+			return new GenomeVariant(oppositePos, oppositeRef, oppositeAlt, strand);
+		} catch (InvalidGenomeVariant invalidGenomeVariant) {
+			throw new UncheckedJannovarException("This cannot happen as check is done on construction.");
+		}
 	}
 
 	/**
@@ -200,7 +184,7 @@ public final class GenomeVariant implements VariantDescription {
 			return Joiner.on("").join(getChrName(), ":g.", getPos() + 1, "del", ref, "ins", alt);
 		else if (ref.length() > 1 && alt.length() != 0)
 			return Joiner.on("").join(getChrName(), ":g.", getPos() + 1, "_", getPos() + ref.length(), "del", ref,
-					"ins", alt);
+				"ins", alt);
 		else
 			return Joiner.on("").join(pos, (ref.equals("") ? "-" : ref), ">", (alt.equals("") ? "-" : alt));
 	}
@@ -321,7 +305,7 @@ public final class GenomeVariant implements VariantDescription {
 	@Override
 	public int compareTo(Annotation other) {
 		return ComparisonChain.start().compare(pos, other.getPos()).compare(ref, other.getRef())
-				.compare(alt, other.getAlt()).result();
+			.compare(alt, other.getAlt()).result();
 	}
 
 }

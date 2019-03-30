@@ -1,21 +1,19 @@
 package de.charite.compbio.jannovar.vardbs.exac;
 
-import java.util.ArrayList;
-import java.util.Collections;
-
+import com.google.common.collect.Lists;
+import de.charite.compbio.jannovar.vardbs.base.JannovarVarDBException;
+import htsjdk.variant.variantcontext.VariantContext;
+import htsjdk.variant.vcf.VCFHeader;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import com.google.common.collect.Lists;
-
-import de.charite.compbio.jannovar.vardbs.base.JannovarVarDBException;
-import htsjdk.variant.variantcontext.VariantContext;
-import htsjdk.variant.vcf.VCFHeader;
+import java.util.ArrayList;
+import java.util.Collections;
 
 /**
  * Test for annotation with ExAC with default options
- * 
+ *
  * @author <a href="mailto:manuel.holtgrewe@bihealth.de">Manuel Holtgrewe</a>
  */
 public class ExacAnnotationDriverReportOverlappingAsMatchingTest extends ExacAnnotationDriverBaseTest {
@@ -29,6 +27,7 @@ public class ExacAnnotationDriverReportOverlappingAsMatchingTest extends ExacAnn
 
 	@Test
 	public void testAnnotateExtendHeaderWithDefaultPrefix() throws JannovarVarDBException {
+		options.setIdentifierPrefix("EXAC_");
 		ExacAnnotationDriver driver = new ExacAnnotationDriver(dbExacVCFPath, fastaPath, options);
 
 		VCFHeader header = vcfReader.getFileHeader();
@@ -95,8 +94,8 @@ public class ExacAnnotationDriverReportOverlappingAsMatchingTest extends ExacAnn
 		Assert.assertNotNull(header.getInfoHeaderLine("EXAC_HEMI_ALL"));
 		Assert.assertNotNull(header.getInfoHeaderLine("EXAC_HET_ALL"));
 
-		Assert.assertNotNull(header.getInfoHeaderLine("EXAC_BEST_AC"));
-		Assert.assertNotNull(header.getInfoHeaderLine("EXAC_BEST_AF"));
+		Assert.assertNotNull(header.getInfoHeaderLine("EXAC_AC_POPMAX"));
+		Assert.assertNotNull(header.getInfoHeaderLine("EXAC_AF_POPMAX"));
 	}
 
 	@Test
@@ -114,11 +113,11 @@ public class ExacAnnotationDriverReportOverlappingAsMatchingTest extends ExacAnn
 		Assert.assertEquals(42, annotated.getAttributes().size());
 		ArrayList<String> keys = Lists.newArrayList(annotated.getAttributes().keySet());
 		Collections.sort(keys);
-		Assert.assertEquals("[AC_AFR, AC_ALL, AC_AMR, AC_EAS, AC_FIN, AC_NFE, AC_OTH, AC_SAS, AF_AFR, AF_ALL, "
-				+ "AF_AMR, AF_EAS, AF_FIN, AF_NFE, AF_OTH, AF_SAS, AN_AFR, AN_ALL, AN_AMR, "
-				+ "AN_EAS, AN_FIN, AN_NFE, AN_OTH, AN_SAS, BEST_AC, BEST_AF, "
-				+ "HET_AFR, HET_ALL, HET_AMR, HET_EAS, HET_FIN, HET_NFE, HET_OTH, HET_SAS, "
-				+ "HOM_AFR, HOM_ALL, HOM_AMR, HOM_EAS, HOM_FIN, HOM_NFE, HOM_OTH, HOM_SAS]", keys.toString());
+		Assert.assertEquals("[AC_AFR, AC_ALL, AC_AMR, AC_EAS, AC_FIN, AC_NFE, AC_OTH, AC_POPMAX, AC_SAS, AF_AFR, AF_ALL, "
+			+ "AF_AMR, AF_EAS, AF_FIN, AF_NFE, AF_OTH, AF_POPMAX, AF_SAS, AN_AFR, AN_ALL, AN_AMR, "
+			+ "AN_EAS, AN_FIN, AN_NFE, AN_OTH, AN_SAS, "
+			+ "HET_AFR, HET_ALL, HET_AMR, HET_EAS, HET_FIN, HET_NFE, HET_OTH, HET_SAS, "
+			+ "HOM_AFR, HOM_ALL, HOM_AMR, HOM_EAS, HOM_FIN, HOM_NFE, HOM_OTH, HOM_SAS]", keys.toString());
 
 		Assert.assertEquals("[2, 2, 2]", annotated.getAttributeAsString("AC_AFR", null));
 		Assert.assertEquals("[2, 2, 2]", annotated.getAttributeAsString("AC_ALL", null));
@@ -130,9 +129,9 @@ public class ExacAnnotationDriverReportOverlappingAsMatchingTest extends ExacAnn
 		Assert.assertEquals("[0, 0, 0]", annotated.getAttributeAsString("AC_SAS", null));
 
 		Assert.assertEquals("[0.003194888178913738, 0.003194888178913738, 0.003194888178913738]",
-				annotated.getAttributeAsString("AF_AFR", null));
+			annotated.getAttributeAsString("AF_AFR", null));
 		Assert.assertEquals("[1.7041581458759374E-4, 1.7041581458759374E-4, 1.7041581458759374E-4]",
-				annotated.getAttributeAsString("AF_ALL", null));
+			annotated.getAttributeAsString("AF_ALL", null));
 		Assert.assertEquals("[0.0, 0.0, 0.0]", annotated.getAttributeAsString("AF_AMR", null));
 		Assert.assertEquals("[0.0, 0.0, 0.0]", annotated.getAttributeAsString("AF_EAS", null));
 		Assert.assertEquals("[0.0, 0.0, 0.0]", annotated.getAttributeAsString("AF_FIN", null));
@@ -149,9 +148,9 @@ public class ExacAnnotationDriverReportOverlappingAsMatchingTest extends ExacAnn
 		Assert.assertEquals("122", annotated.getAttributeAsString("AN_OTH", null));
 		Assert.assertEquals("7520", annotated.getAttributeAsString("AN_SAS", null));
 
-		Assert.assertEquals("[2, 2, 2]", annotated.getAttributeAsString("BEST_AC", null));
+		Assert.assertEquals("[2, 2, 2]", annotated.getAttributeAsString("AC_POPMAX", null));
 		Assert.assertEquals("[0.003194888178913738, 0.003194888178913738, 0.003194888178913738]",
-				annotated.getAttributeAsString("BEST_AF", null));
+			annotated.getAttributeAsString("AF_POPMAX", null));
 	}
 
 }

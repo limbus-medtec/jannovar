@@ -1,20 +1,14 @@
 package de.charite.compbio.jannovar.vardbs.cosmic;
 
+import com.google.common.base.Joiner;
+import com.google.common.collect.Lists;
+import de.charite.compbio.jannovar.vardbs.base.*;
+import htsjdk.variant.variantcontext.VariantContext;
+import htsjdk.variant.variantcontext.VariantContextBuilder;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map.Entry;
-
-import com.google.common.base.Joiner;
-import com.google.common.collect.Lists;
-
-import de.charite.compbio.jannovar.vardbs.base.AbstractDBAnnotationDriver;
-import de.charite.compbio.jannovar.vardbs.base.AnnotatingRecord;
-import de.charite.compbio.jannovar.vardbs.base.DBAnnotationOptions;
-import de.charite.compbio.jannovar.vardbs.base.GenotypeMatch;
-import de.charite.compbio.jannovar.vardbs.base.JannovarVarDBException;
-import de.charite.compbio.jannovar.vardbs.base.VCFHeaderExtender;
-import htsjdk.variant.variantcontext.VariantContext;
-import htsjdk.variant.variantcontext.VariantContextBuilder;
 
 /**
  * Annotation driver class for annotations using COSMIC data
@@ -24,14 +18,14 @@ import htsjdk.variant.variantcontext.VariantContextBuilder;
 public class CosmicAnnotationDriver extends AbstractDBAnnotationDriver<CosmicRecord> {
 
 	public CosmicAnnotationDriver(String vcfPath, String fastaPath, DBAnnotationOptions options)
-			throws JannovarVarDBException {
-		super(vcfPath, fastaPath, options, new CosmicVariantContextToRecordConverter());
+		throws JannovarVarDBException {
+		super(new VCFReaderVariantProvider(vcfPath), fastaPath, options, new CosmicVariantContextToRecordConverter());
 	}
 
 	@Override
 	protected HashMap<Integer, AnnotatingRecord<CosmicRecord>> pickAnnotatingDBRecords(
-			HashMap<Integer, ArrayList<GenotypeMatch>> annotatingRecords,
-			HashMap<GenotypeMatch, AnnotatingRecord<CosmicRecord>> matchToRecord, boolean isMatch) {
+		HashMap<Integer, ArrayList<GenotypeMatch>> annotatingRecords,
+		HashMap<GenotypeMatch, AnnotatingRecord<CosmicRecord>> matchToRecord, boolean isMatch) {
 		// Pick best annotation for each alternative allele
 		HashMap<Integer, AnnotatingRecord<CosmicRecord>> annotatingRecord = new HashMap<>();
 		for (Entry<Integer, ArrayList<GenotypeMatch>> entry : annotatingRecords.entrySet()) {
@@ -57,8 +51,8 @@ public class CosmicAnnotationDriver extends AbstractDBAnnotationDriver<CosmicRec
 
 	@Override
 	protected VariantContext annotateWithDBRecords(VariantContext vc,
-			HashMap<Integer, AnnotatingRecord<CosmicRecord>> matchRecords,
-			HashMap<Integer, AnnotatingRecord<CosmicRecord>> overlapRecords) {
+												   HashMap<Integer, AnnotatingRecord<CosmicRecord>> matchRecords,
+												   HashMap<Integer, AnnotatingRecord<CosmicRecord>> overlapRecords) {
 		VariantContextBuilder builder = new VariantContextBuilder(vc);
 
 		annotateIDs(vc, matchRecords, builder);
@@ -79,7 +73,7 @@ public class CosmicAnnotationDriver extends AbstractDBAnnotationDriver<CosmicRec
 	}
 
 	private void annotateIDs(VariantContext vc, HashMap<Integer, AnnotatingRecord<CosmicRecord>> records,
-			VariantContextBuilder builder) {
+							 VariantContextBuilder builder) {
 		ArrayList<String> idList = Lists.newArrayList(vc.getID().split(";"));
 		for (int i = 1; i < vc.getNAlleles(); ++i) {
 			if (records.get(i) != null) {
@@ -98,7 +92,7 @@ public class CosmicAnnotationDriver extends AbstractDBAnnotationDriver<CosmicRec
 	}
 
 	private void annotateInfoCnt(VariantContext vc, String infix,
-			HashMap<Integer, AnnotatingRecord<CosmicRecord>> records, VariantContextBuilder builder) {
+								 HashMap<Integer, AnnotatingRecord<CosmicRecord>> records, VariantContextBuilder builder) {
 		if (records.isEmpty())
 			return;
 		CosmicRecord first = records.values().iterator().next().getRecord();
@@ -106,7 +100,7 @@ public class CosmicAnnotationDriver extends AbstractDBAnnotationDriver<CosmicRec
 	}
 
 	private void annotateInfoSnp(VariantContext vc, String infix,
-			HashMap<Integer, AnnotatingRecord<CosmicRecord>> records, VariantContextBuilder builder) {
+								 HashMap<Integer, AnnotatingRecord<CosmicRecord>> records, VariantContextBuilder builder) {
 		if (records.isEmpty())
 			return;
 		CosmicRecord first = records.values().iterator().next().getRecord();
@@ -115,7 +109,7 @@ public class CosmicAnnotationDriver extends AbstractDBAnnotationDriver<CosmicRec
 	}
 
 	private void annotateInfoID(VariantContext vc, String infix,
-			HashMap<Integer, AnnotatingRecord<CosmicRecord>> records, VariantContextBuilder builder) {
+								HashMap<Integer, AnnotatingRecord<CosmicRecord>> records, VariantContextBuilder builder) {
 		String idIDs = options.getVCFIdentifierPrefix() + infix + "IDS";
 		ArrayList<ArrayList<String>> matchList = new ArrayList<>();
 		for (int i = 1; i < vc.getNAlleles(); ++i) {

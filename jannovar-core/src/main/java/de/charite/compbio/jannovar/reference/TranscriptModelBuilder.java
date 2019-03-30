@@ -1,22 +1,20 @@
 package de.charite.compbio.jannovar.reference;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
-import com.google.common.collect.ImmutableSortedSet.Builder;
+
+import java.util.ArrayList;
+import java.util.HashMap;
 
 /**
  * Class for building immutable {@link TranscriptModel} objects field-by-field.
- *
+ * <p>
  * In this sense, it is similar to {@link StringBuilder} for building {@link String} objects.
- *
+ * <p>
  * Usage:
  *
  * <pre>
- * {@link TranscriptModelBuilder} builder = new TranscriptInfoBuilder();
+ * {@link TranscriptModelBuilder} builder = new TranscriptModelBuilder();
  * builder.{@link TranscriptModelBuilder#setStrand setStrand}('-');
  * builder.{@link TranscriptModelBuilder#setAccession setAccession}(&quot;&lt;accession&gt;&quot;);
  * // ...
@@ -27,35 +25,65 @@ import com.google.common.collect.ImmutableSortedSet.Builder;
  */
 public class TranscriptModelBuilder {
 
-	/** The explicit strand of the target transcript. */
+	/**
+	 * The explicit strand of the target transcript.
+	 */
 	private Strand strand = Strand.FWD;
 
-	/** {@link TranscriptInfo#accession} of next {@link TranscriptInfo} to build. */
+	/**
+	 * {@link TranscriptModel#accession} of next {@link TranscriptModel} to build.
+	 */
 	private String accession = null;
 
-	/** {@link TranscriptInfo#geneSymbol} of next {@link TranscriptInfo} to build. */
-	private String geneSymbol = null;
-
-	/** {@link TranscriptInfo#txRegion} of next {@link TranscriptInfo} to build. */
-	private GenomeInterval txRegion = null;
-
-	/** {@link TranscriptInfo#cdsRegion} of next {@link TranscriptInfo} to build. */
-	private GenomeInterval cdsRegion = null;
-
-	/** {@link TranscriptInfo#exonRegions} of next {@link TranscriptInfo} to build. */
-	private ArrayList<GenomeInterval> exonRegions = new ArrayList<GenomeInterval>();
-
-	/** {@link TranscriptInfo#accession} of next {@link TranscriptInfo} to build. */
-	private String sequence = null;
-
-	/** {@link TranscriptInfo#geneID} of next {@link TranscriptInfo} to build. */
-	private String geneID = null;
-
-	/** Map with alternative gene IDs */
-	private HashMap<String, String> altGeneIDs = new HashMap<String, String>();;
+	/**
+	 * Optional transcript version.  The accession must be the same as in the transcript FASTA file.  Specifying
+	 * the version separately here allows us to store it from the GTF/GFF and then later add it to the accession.
+	 */
+	private String txVersion = null;
 
 	/**
-	 * {@link TranscriptInfo#transcriptSupportLevel} of next {@link TranscriptInfo} to build.
+	 * {@link TranscriptModel#geneSymbol} of next {@link TranscriptModel} to build.
+	 */
+	private String geneSymbol = null;
+
+	/**
+	 * {@link TranscriptModel#txRegion} of next {@link TranscriptModel} to build.
+	 */
+	private GenomeInterval txRegion = null;
+
+	/**
+	 * {@link TranscriptModel#cdsRegion} of next {@link TranscriptModel} to build.
+	 */
+	private GenomeInterval cdsRegion = null;
+
+	/**
+	 * {@link TranscriptModel#exonRegions} of next {@link TranscriptModel} to build.
+	 */
+	private ArrayList<GenomeInterval> exonRegions = new ArrayList<GenomeInterval>();
+
+	/**
+	 * {@link TranscriptModel#accession} of next {@link TranscriptModel} to build.
+	 */
+	private String sequence = null;
+
+	/**
+	 * {@link TranscriptModel#geneID} of next {@link TranscriptModel} to build.
+	 */
+	private String geneID = null;
+
+	/**
+	 * Optional gene version.
+	 */
+	private String geneVersion = null;
+
+	/**
+	 * Map with alternative gene IDs
+	 */
+	private HashMap<String, String> altGeneIDs = new HashMap<String, String>();
+	;
+
+	/**
+	 * {@link TranscriptModel#transcriptSupportLevel} of next {@link TranscriptModel} to build.
 	 *
 	 * @see TranscriptSupportLevels
 	 */
@@ -67,12 +95,14 @@ public class TranscriptModelBuilder {
 	public void reset() {
 		strand = Strand.FWD;
 		accession = null;
+		txVersion = null;
 		geneSymbol = null;
 		txRegion = null;
 		cdsRegion = null;
 		exonRegions.clear();
 		sequence = null;
 		geneID = null;
+		geneVersion = null;
 		altGeneIDs.clear();
 		transcriptSupportLevel = TranscriptSupportLevels.NOT_AVAILABLE;
 	}
@@ -82,7 +112,7 @@ public class TranscriptModelBuilder {
 	 */
 	public TranscriptModel build() {
 		// Build list of immutable exons in the correct order.
-		ImmutableSortedSet.Builder<GenomeInterval> builder = ImmutableSortedSet.<GenomeInterval> naturalOrder();
+		ImmutableSortedSet.Builder<GenomeInterval> builder = ImmutableSortedSet.<GenomeInterval>naturalOrder();
 		if (exonRegions.size() > 0) {
 			if (strand == exonRegions.get(0).getStrand()) {
 				for (int i = 0; i < exonRegions.size(); ++i)
@@ -93,9 +123,21 @@ public class TranscriptModelBuilder {
 			}
 		}
 
-		// Create new TranscriptInfo object.
-		return new TranscriptModel(accession, geneSymbol, txRegion.withStrand(strand), cdsRegion.withStrand(strand),
-				ImmutableList.copyOf(builder.build()), sequence, geneID, transcriptSupportLevel, altGeneIDs);
+		// Build full accession with version if set.
+		String fullAccession = accession;
+		if (this.txVersion != null) {
+			fullAccession += "." + this.txVersion;
+		}
+
+		// Build full gene ID with version if set.
+		String fullGeneID = geneID;
+		if (this.geneVersion != null) {
+			fullGeneID += "." + this.geneVersion;
+		}
+
+		// Create new TranscriptModel object.
+		return new TranscriptModel(fullAccession, geneSymbol, txRegion.withStrand(strand), cdsRegion.withStrand(strand),
+			ImmutableList.copyOf(builder.build()), sequence, fullGeneID, transcriptSupportLevel, altGeneIDs);
 	}
 
 	/**
@@ -106,8 +148,7 @@ public class TranscriptModelBuilder {
 	}
 
 	/**
-	 * @param strand
-	 *            the strand to set
+	 * @param strand the strand to set
 	 */
 	public void setStrand(Strand strand) {
 		this.strand = strand;
@@ -121,8 +162,21 @@ public class TranscriptModelBuilder {
 	}
 
 	/**
-	 * @param accession
-	 *            the accession to set
+	 * @param txVersion the version to set
+	 */
+	public void setTxVersion(String txVersion) {
+		this.txVersion = txVersion;
+	}
+
+	/**
+	 * @return the transcript version
+	 */
+	public String getTxVersion() {
+		return txVersion;
+	}
+
+	/**
+	 * @param accession the accession to set
 	 */
 	public void setAccession(String accession) {
 		this.accession = accession;
@@ -136,8 +190,7 @@ public class TranscriptModelBuilder {
 	}
 
 	/**
-	 * @param geneSymbol
-	 *            the geneSymbol to set
+	 * @param geneSymbol the geneSymbol to set
 	 */
 	public void setGeneSymbol(String geneSymbol) {
 		this.geneSymbol = geneSymbol;
@@ -151,8 +204,7 @@ public class TranscriptModelBuilder {
 	}
 
 	/**
-	 * @param txRegion
-	 *            the txRegion to set
+	 * @param txRegion the txRegion to set
 	 */
 	public void setTXRegion(GenomeInterval txRegion) {
 		this.txRegion = txRegion;
@@ -166,8 +218,7 @@ public class TranscriptModelBuilder {
 	}
 
 	/**
-	 * @param cdsRegion
-	 *            the cdsRegion to set
+	 * @param cdsRegion the cdsRegion to set
 	 */
 	public void setCDSRegion(GenomeInterval cdsRegion) {
 		this.cdsRegion = cdsRegion;
@@ -202,8 +253,7 @@ public class TranscriptModelBuilder {
 	}
 
 	/**
-	 * @param exonRegion
-	 *            interval to append
+	 * @param exonRegion interval to append
 	 */
 	public void addExonRegion(GenomeInterval exonRegion) {
 		this.exonRegions.add(exonRegion);
@@ -217,8 +267,7 @@ public class TranscriptModelBuilder {
 	}
 
 	/**
-	 * @param sequence
-	 *            the sequence to set
+	 * @param sequence the sequence to set
 	 */
 	public void setSequence(String sequence) {
 		this.sequence = sequence;
@@ -232,8 +281,22 @@ public class TranscriptModelBuilder {
 	}
 
 	/**
-	 * @param geneID
-	 *            the geneID to set
+	 * @param geneVersion the geneVersion to set
+	 */
+	public void setGeneVersion(String geneVersion) {
+		this.geneVersion = geneVersion;
+	}
+
+
+	/**
+	 * @return the geneVersion
+	 */
+	public String getGeneVersion() {
+		return geneVersion;
+	}
+
+	/**
+	 * @param geneID the geneID to set
 	 */
 	public void setGeneID(String geneID) {
 		this.geneID = geneID;
@@ -248,8 +311,7 @@ public class TranscriptModelBuilder {
 	}
 
 	/**
-	 * @param transcriptSupportLevel
-	 *            set transcript resource level
+	 * @param transcriptSupportLevel set transcript resource level
 	 * @see TranscriptSupportLevels
 	 */
 	public void setTranscriptSupportLevel(int transcriptSupportLevel) {

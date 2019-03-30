@@ -1,21 +1,14 @@
 package de.charite.compbio.jannovar.pedigree;
 
-import java.io.File;
-import java.io.IOException;
-
+import com.google.common.base.Charsets;
+import com.google.common.collect.ImmutableList;
+import com.google.common.io.Files;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import com.google.common.base.Charsets;
-import com.google.common.collect.ImmutableList;
-import com.google.common.io.Files;
-
-import de.charite.compbio.jannovar.pedigree.Disease;
-import de.charite.compbio.jannovar.pedigree.PedFileContents;
-import de.charite.compbio.jannovar.pedigree.PedFileWriter;
-import de.charite.compbio.jannovar.pedigree.PedPerson;
-import de.charite.compbio.jannovar.pedigree.Sex;
+import java.io.File;
+import java.io.IOException;
 
 public class PedFileWriterTest {
 
@@ -34,12 +27,12 @@ public class PedFileWriterTest {
 		individuals.add(new PedPerson("fam", "son", "father", "mother", Sex.MALE, Disease.UNKNOWN));
 		individuals.add(new PedPerson("fam", "daughter", "father", "mother", Sex.FEMALE, Disease.UNKNOWN));
 		PedFileContents pedFileContents = new PedFileContents(new ImmutableList.Builder<String>().build(),
-				individuals.build());
+			individuals.build());
 
 		PedFileWriter writer = new PedFileWriter(tmpFile);
 		writer.write(pedFileContents);
 
-		String fileContents = Files.toString(tmpFile, Charsets.UTF_8);
+		String fileContents = Files.asCharSource(tmpFile, Charsets.UTF_8).read();
 		StringBuilder expectedContents = new StringBuilder();
 		expectedContents.append("#PEDIGREE\tNAME\tFATHER\tMOTHER\tSEX\tDISEASE\n");
 		expectedContents.append("fam\tfather\t0\t0\t1\t0\n");

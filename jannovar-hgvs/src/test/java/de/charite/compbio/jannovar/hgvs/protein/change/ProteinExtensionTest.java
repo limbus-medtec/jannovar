@@ -1,11 +1,10 @@
 package de.charite.compbio.jannovar.hgvs.protein.change;
 
+import de.charite.compbio.jannovar.hgvs.AminoAcidCode;
+import de.charite.compbio.jannovar.hgvs.protein.ProteinPointLocation;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-
-import de.charite.compbio.jannovar.hgvs.AminoAcidCode;
-import de.charite.compbio.jannovar.hgvs.protein.ProteinPointLocation;
 
 public class ProteinExtensionTest {
 
@@ -32,14 +31,14 @@ public class ProteinExtensionTest {
 
 	@Test
 	public void testNormalExtensionToHGVSString() {
-		Assert.assertEquals("Ala124Thrext*23", normalExtension.toHGVSString());
+		Assert.assertEquals("A124Text*23", normalExtension.toHGVSString());
 		Assert.assertEquals("Ala124Thrext*23", normalExtension.toHGVSString(AminoAcidCode.THREE_LETTER));
 		Assert.assertEquals("A124Text*23", normalExtension.toHGVSString(AminoAcidCode.ONE_LETTER));
 	}
 
 	@Test
 	public void testNoTerExtensionToHGVSString() {
-		Assert.assertEquals("Ala124Thrext*?", noTerExtension.toHGVSString());
+		Assert.assertEquals("A124Text*?", noTerExtension.toHGVSString());
 		Assert.assertEquals("Ala124Thrext*?", noTerExtension.toHGVSString(AminoAcidCode.THREE_LETTER));
 		Assert.assertEquals("A124Text*?", noTerExtension.toHGVSString(AminoAcidCode.ONE_LETTER));
 	}

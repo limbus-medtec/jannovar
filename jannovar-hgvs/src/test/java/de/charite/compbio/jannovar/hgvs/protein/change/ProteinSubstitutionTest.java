@@ -1,11 +1,10 @@
 package de.charite.compbio.jannovar.hgvs.protein.change;
 
+import de.charite.compbio.jannovar.hgvs.AminoAcidCode;
+import de.charite.compbio.jannovar.hgvs.protein.ProteinPointLocation;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-
-import de.charite.compbio.jannovar.hgvs.AminoAcidCode;
-import de.charite.compbio.jannovar.hgvs.protein.ProteinPointLocation;
 
 public class ProteinSubstitutionTest {
 
@@ -32,7 +31,7 @@ public class ProteinSubstitutionTest {
 	public void testToHGVSString() {
 		Assert.assertEquals("(A124G)", sub1.toHGVSString(AminoAcidCode.ONE_LETTER));
 		Assert.assertEquals("(Ala124Gly)", sub1.toHGVSString(AminoAcidCode.THREE_LETTER));
-		Assert.assertEquals("(Ala124Gly)", sub1.toHGVSString());
+		Assert.assertEquals("(A124G)", sub1.toHGVSString());
 	}
 
 	@Test
